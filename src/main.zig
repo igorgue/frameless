@@ -1,4 +1,3 @@
-const std = @import("std");
 const c = @cImport({
     @cInclude("libadwaita-1/adwaita.h");
     @cInclude("webkitgtk-6.0/webkit/webkit.h");
