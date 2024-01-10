@@ -1,3 +1,4 @@
+const std = @import("std");
 const c = @cImport({
     @cInclude("libadwaita-1/adwaita.h");
     @cInclude("webkitgtk-6.0/webkit/webkit.h");
@@ -19,7 +20,7 @@ fn activateCb(app: *c.GtkApplication, data: c.gpointer) callconv(.C) void {
 }
 
 pub fn main() void {
-    const app = c.adw_application_new("org.igorgue.Browser", c.G_APPLICATION_FLAGS_NONE);
+    const app = c.adw_application_new("org.igorgue.Browser", c.G_APPLICATION_DEFAULT_FLAGS);
 
     _ = c.g_signal_connect_data(
         app,
