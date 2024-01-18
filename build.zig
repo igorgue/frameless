@@ -14,6 +14,7 @@ pub fn build(b: *std.Build) void {
 
     exe.linkLibC();
     exe.linkSystemLibrary("libadwaita-1");
+    exe.linkSystemLibrary("gdk-3");
     exe.linkSystemLibrary("webkitgtk-6.0");
 
     b.installArtifact(exe);
