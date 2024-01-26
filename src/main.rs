@@ -1,9 +1,8 @@
-use adw::prelude::*;
-
 use adw::gdk::{Key, ModifierType};
 use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
+use adw::prelude::*;
 use adw::{Application, ApplicationWindow};
 
 use webkit::{prelude::*, LoadEvent, WebView};
