@@ -5,10 +5,13 @@ use adw::gtk::EventControllerKey;
 use adw::{Application, ApplicationWindow};
 use webkit::{prelude::*, LoadEvent, WebView};
 
-fn input(event: &EventControllerKey, key: Key, keycode: u32, state: ModifierType) -> Propagation {
-    _ = (event, key, state);
-
-    eprintln!("Key pressed: {:?}", keycode);
+fn input(event: &EventControllerKey, key: Key, keycode: u32, modifier_state: ModifierType) -> Propagation {
+    println!("*****************");
+    println!("event: {:?}", event);
+    println!("key: {:?}", key);
+    println!("keycode: {:?}", keycode);
+    println!("modifier: {:?}", modifier_state);
+    println!("*****************");
 
     Propagation::Stop
 }
@@ -18,7 +21,7 @@ fn loaded(webview: &WebView, event: LoadEvent) {
         return;
     }
 
-    eprintln!("Loaded: {:?}", event);
+    println!("Loaded: {:?}", event);
 
     let javascript = "document.body.style.backgroundColor = 'red';";
     let cancellable: Option<&Cancellable> = None;
