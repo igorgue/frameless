@@ -1,4 +1,4 @@
-use adw::{gdk::{Key, ModifierType}};
+use adw::gdk::{Key, ModifierType};
 use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
@@ -21,11 +21,13 @@ fn webview() -> &'static WebView {
 fn init_inspector(webview: &WebView) {
     unsafe {
         INSPECTOR = Some(webview.inspector().unwrap());
-
-        inspector().connect_closed(|_| {
-            IS_INSPECTOR_VISIBLE = false;
-        });
     };
+
+    inspector().connect_closed(|_| {
+        unsafe {
+            IS_INSPECTOR_VISIBLE = false;
+        };
+    });
 }
 
 fn init_webview() {
@@ -61,18 +63,12 @@ fn input(
     }
 
     // Reload harder.
-    if key == Key::R
-        && modifier_state.contains(ModifierType::CONTROL_MASK)
-        && modifier_state.contains(ModifierType::SHIFT_MASK)
-    {
+    if key == Key::R && modifier_state.contains(ModifierType::CONTROL_MASK) {
         webview().reload_bypass_cache();
     }
 
     // Toggle inspector
-    if key == Key::I
-        && modifier_state.contains(ModifierType::SHIFT_MASK)
-        && modifier_state.contains(ModifierType::CONTROL_MASK)
-    {
+    if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
         let inspector = inspector();
 
         if unsafe { IS_INSPECTOR_VISIBLE } {
