@@ -9,7 +9,7 @@ use adw::{Application, ApplicationWindow};
 use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView};
 
 const LEADER_KEY: Key = Key::semicolon;
-const LEADER_KEY_COMPOSE_TIME: u64 = 500;
+const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const SCROLL_AMOUNT: i32 = 20;
 
 static mut INSPECTOR: Option<WebInspector> = None;
