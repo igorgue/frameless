@@ -1,4 +1,4 @@
-use adw::gdk::{Key, ModifierType, KeyEvent};
+use adw::gdk::{prelude::*, Key, ModifierType};
 use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
@@ -64,7 +64,43 @@ fn show_key_press(key: Key, modifier_state: ModifierType, in_js_console: bool) {
 }
 
 fn scrool_down_webview() {
-    print!("Scrolling down... ");
+    let webview = webview();
+    let scroll_amount = 20;
+    let javascript = format!("window.scrollBy(0, {})", scroll_amount);
+
+    let cancellable: Option<&Cancellable> = None;
+
+    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+}
+
+fn scrool_up_webview() {
+    let webview = webview();
+    let scroll_amount = -20;
+    let javascript = format!("window.scrollBy(0, {})", scroll_amount);
+
+    let cancellable: Option<&Cancellable> = None;
+
+    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+}
+
+fn scrool_right_webview() {
+    let webview = webview();
+    let scroll_amount = 20;
+    let javascript = format!("window.scrollBy({}, 0)", scroll_amount);
+
+    let cancellable: Option<&Cancellable> = None;
+
+    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+}
+
+fn scrool_left_webview() {
+    let webview = webview();
+    let scroll_amount = -20;
+    let javascript = format!("window.scrollBy({}, 0)", scroll_amount);
+
+    let cancellable: Option<&Cancellable> = None;
+
+    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
 }
 
 fn window_kb_input(
@@ -79,8 +115,23 @@ fn window_kb_input(
     show_key_press(key, modifier_state, true);
     show_key_press(key, modifier_state, false);
 
+    if key == Key::h {
+        scrool_left_webview();
+
+        return Propagation::Stop;
+    }
     if key == Key::j {
         scrool_down_webview();
+
+        return Propagation::Stop;
+    }
+    if key == Key::k {
+        scrool_up_webview();
+
+        return Propagation::Stop;
+    }
+    if key == Key::l {
+        scrool_right_webview();
 
         return Propagation::Stop;
     }
@@ -99,8 +150,23 @@ fn webkit_kb_input(
     show_key_press(key, modifier_state, true);
     show_key_press(key, modifier_state, false);
 
+    if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        scrool_left_webview();
+
+        return Propagation::Stop;
+    }
     if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
         scrool_down_webview();
+
+        return Propagation::Stop;
+    }
+    if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        scrool_up_webview();
+
+        return Propagation::Stop;
+    }
+    if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        scrool_right_webview();
 
         return Propagation::Stop;
     }
