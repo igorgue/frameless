@@ -5,7 +5,15 @@ use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
 use adw::{Application, ApplicationWindow};
-use webkit::{prelude::*, javascriptcore, glib, LoadEvent, WebInspector, WebView};
+
+use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView};
+
+const LEADER_KEY: Key = Key::semicolon;
+static mut INSPECTOR: Option<WebInspector> = None;
+static mut INSPECTOR_VISIBLE: bool = false;
+static mut IN_INSERT_MODE: bool = false;
+static mut WEB_VIEW: Option<WebView> = None;
+static mut LEADER_KEY_LAST: Option<LastKey> = None;
 
 struct LastKey {
     key: Key,
@@ -21,9 +29,7 @@ impl LastKey {
     }
 
     fn is_composing(&self) -> bool {
-        println!("last_press_time: {:?}", self.last_press_time);
-        println!("get_current_time: {:?}", get_current_time());
-        self.last_press_time + 500_000_000 > get_current_time()
+        self.last_press_time + 500 > get_current_time()
     }
 }
 
@@ -32,24 +38,17 @@ fn get_current_time() -> u64 {
 
     time.duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
-        .as_nanos() as u64
+        .as_millis() as u64
 }
 
-static mut INSPECTOR: Option<WebInspector> = None;
-static mut INSPECTOR_VISIBLE: bool = false;
-static mut WEB_VIEW: Option<WebView> = None;
-static mut LEADER_KEY: Option<LastKey> = None;
-
 fn init_leader_key() {
-    let key = Key::space;
-
     unsafe {
-        LEADER_KEY = Some(LastKey::new(key, 0));
+        LEADER_KEY_LAST = Some(LastKey::new(LEADER_KEY, 0));
     };
 }
 
 fn leader_key() -> &'static LastKey {
-    unsafe { LEADER_KEY.as_ref().unwrap() }
+    unsafe { LEADER_KEY_LAST.as_ref().unwrap() }
 }
 
 fn inspector() -> &'static WebInspector {
@@ -68,6 +67,14 @@ fn init_inspector(webview: &WebView) {
     inspector().connect_closed(|_| {
         unsafe {
             INSPECTOR_VISIBLE = false;
+        };
+    });
+}
+
+fn update_in_insert_mode() {
+    insert_mode(move |result| {
+        unsafe {
+            IN_INSERT_MODE = result.unwrap().to_boolean();
         };
     });
 }
@@ -181,7 +188,7 @@ fn window_kb_input(
     let leader_key = leader_key();
     if key == leader_key.key {
         unsafe {
-            LEADER_KEY = Some(LastKey::new(key, get_current_time()));
+            LEADER_KEY_LAST = Some(LastKey::new(key, get_current_time()));
         };
 
         return Propagation::Stop;
@@ -200,6 +207,8 @@ fn webkit_kb_input(
     print!("[web_view] ");
     show_key_press(key, modifier_state, true);
     show_key_press(key, modifier_state, false);
+
+    update_in_insert_mode();
 
     if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
         scrool_left_webview();
@@ -248,6 +257,28 @@ fn webkit_kb_input(
         return Propagation::Stop;
     }
 
+    let leader_key = leader_key();
+    if key == leader_key.key {
+        if unsafe { IN_INSERT_MODE } {
+            if modifier_state.contains(ModifierType::CONTROL_MASK) {
+                unsafe {
+                    LEADER_KEY_LAST = Some(LastKey::new(key, get_current_time()));
+                };
+
+                return Propagation::Stop;
+            }
+        } else {
+            unsafe {
+                LEADER_KEY_LAST = Some(LastKey::new(key, get_current_time()));
+            };
+        }
+    } else if leader_key.is_composing() {
+        println!("leader_key.is_composing()");
+
+        return Propagation::Stop;
+    }
+
+    // Remove features from GTK, smiles and add escape
     if key == Key::semicolon && modifier_state.contains(ModifierType::CONTROL_MASK) {
         // Prevents smiley inputs from showing up
         return Propagation::Stop;
@@ -261,26 +292,6 @@ fn webkit_kb_input(
     if key == Key::from_name("Escape").unwrap() && unsafe { INSPECTOR_VISIBLE } {
         inspector().close();
         unsafe { INSPECTOR_VISIBLE = false };
-    }
-
-    let leader_key = leader_key();
-    if key == leader_key.key {
-        insert_mode(|result| {
-            if result.unwrap().to_boolean() {
-                println!("is_input");
-                // unsafe {
-                //     LEADER_KEY = Some(LastKey::new(key, get_current_time()));
-                // };
-            } else {
-                println!("is_not_input");
-            }
-        });
-
-        return Propagation::Stop;
-    } else if leader_key.is_composing() {
-        println!("leader_key.is_composing()");
-
-        return Propagation::Stop;
     }
 
     Propagation::Proceed
@@ -317,7 +328,6 @@ fn loaded(webview: &WebView, event: LoadEvent) {
 }
 
 fn activate(app: &Application) {
-    init_leader_key();
     init_webview();
     let webview = webview();
 
@@ -345,6 +355,9 @@ fn activate(app: &Application) {
     window.add_controller(window_key_pressed_controller);
 
     window.present();
+
+    init_leader_key();
+    update_in_insert_mode();
 }
 
 fn main() {
