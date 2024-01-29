@@ -41,6 +41,10 @@ fn quit() {
     window().application().unwrap().quit();
 }
 
+fn close() {
+    window().close();
+}
+
 fn get_current_time() -> u64 {
     let time = SystemTime::now();
 
@@ -265,6 +269,13 @@ fn webkit_kb_input(
         }
 
         // Prevents GTK inspector from showing up
+        return Propagation::Stop;
+    }
+
+    // Close window with Ctrl+w
+    if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        close();
+
         return Propagation::Stop;
     }
 
