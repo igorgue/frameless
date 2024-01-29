@@ -14,15 +14,15 @@ static mut INSPECTOR: Option<WebInspector> = None;
 static mut INSPECTOR_VISIBLE: bool = false;
 static mut IN_INSERT_MODE: bool = false;
 static mut WEB_VIEW: Option<WebView> = None;
-static mut LEADER_KEY_LAST: Option<LastKey> = None;
+static mut LEADER_KEY_LAST: Option<LastLeaderKey> = None;
 static mut WINDOW: Option<ApplicationWindow> = None;
 
-struct LastKey {
+struct LastLeaderKey {
     key: Key,
     last_press_time: u64,
 }
 
-impl LastKey {
+impl LastLeaderKey {
     fn new(key: Key, last_press_time: u64) -> Self {
         Self {
             key,
@@ -55,7 +55,7 @@ fn webview() -> &'static WebView {
     unsafe { WEB_VIEW.as_ref().unwrap() }
 }
 
-fn leader_key() -> &'static LastKey {
+fn leader_key() -> &'static LastLeaderKey {
     unsafe { LEADER_KEY_LAST.as_ref().unwrap() }
 }
 
@@ -77,7 +77,7 @@ fn init_inspector(webview: &WebView) {
 
 fn init_leader_key() {
     unsafe {
-        LEADER_KEY_LAST = Some(LastKey::new(LEADER_KEY, 0));
+        LEADER_KEY_LAST = Some(LastLeaderKey::new(LEADER_KEY, 0));
     };
 }
 
@@ -199,7 +199,7 @@ fn window_kb_input(
     let leader_key = leader_key();
     if key == leader_key.key {
         unsafe {
-            LEADER_KEY_LAST = Some(LastKey::new(key, get_current_time()));
+            LEADER_KEY_LAST = Some(LastLeaderKey::new(key, get_current_time()));
         };
 
         return Propagation::Stop;
@@ -272,14 +272,14 @@ fn webkit_kb_input(
         if unsafe { IN_INSERT_MODE } {
             if modifier_state.contains(ModifierType::CONTROL_MASK) {
                 unsafe {
-                    LEADER_KEY_LAST = Some(LastKey::new(key, get_current_time()));
+                    LEADER_KEY_LAST = Some(LastLeaderKey::new(key, get_current_time()));
                 };
 
                 return Propagation::Stop;
             }
         } else {
             unsafe {
-                LEADER_KEY_LAST = Some(LastKey::new(key, get_current_time()));
+                LEADER_KEY_LAST = Some(LastLeaderKey::new(key, get_current_time()));
             };
         }
     } else if leader_key.is_composing() {
