@@ -14,6 +14,7 @@ static mut INSPECTOR_VISIBLE: bool = false;
 static mut IN_INSERT_MODE: bool = false;
 static mut WEB_VIEW: Option<WebView> = None;
 static mut LEADER_KEY_LAST: Option<LastKey> = None;
+static mut WINDOW: Option<ApplicationWindow> = None;
 
 struct LastKey {
     key: Key,
@@ -31,6 +32,10 @@ impl LastKey {
     fn is_composing(&self) -> bool {
         self.last_press_time + 500 > get_current_time()
     }
+}
+
+fn quit() {
+    window().application().unwrap().quit();
 }
 
 fn get_current_time() -> u64 {
@@ -69,6 +74,16 @@ fn init_inspector(webview: &WebView) {
             INSPECTOR_VISIBLE = false;
         };
     });
+}
+
+fn init_window(window: ApplicationWindow) {
+    unsafe {
+        WINDOW = Some(window);
+    };
+}
+
+fn window() -> &'static ApplicationWindow {
+    unsafe { WINDOW.as_ref().unwrap() }
 }
 
 fn update_in_insert_mode() {
@@ -273,7 +288,12 @@ fn webkit_kb_input(
             };
         }
     } else if leader_key.is_composing() {
-        println!("leader_key.is_composing()");
+        if key == Key::q {
+            println!("Quitting...");
+            quit();
+
+            return Propagation::Stop;
+        }
 
         return Propagation::Stop;
     }
@@ -356,6 +376,7 @@ fn activate(app: &Application) {
 
     window.present();
 
+    init_window(window);
     init_leader_key();
     update_in_insert_mode();
 }
