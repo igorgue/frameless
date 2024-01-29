@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use adw::gdk::{prelude::*, Key, ModifierType};
 use adw::gio::Cancellable;
 use adw::glib::Propagation;
@@ -5,10 +7,50 @@ use adw::gtk::EventControllerKey;
 use adw::{Application, ApplicationWindow};
 use webkit::{prelude::*, LoadEvent, WebInspector, WebView};
 
-static mut INSPECTOR: Option<WebInspector> = None;
-static mut IS_INSPECTOR_VISIBLE: bool = false;
+struct LastKey {
+    key: Key,
+    last_press_time: u64,
+}
 
+impl LastKey {
+    fn new(key: Key, last_press_time: u64) -> Self {
+        Self {
+            key,
+            last_press_time,
+        }
+    }
+
+    fn is_composing(&self) -> bool {
+        println!("last_press_time: {:?}", self.last_press_time);
+        println!("get_current_time: {:?}", get_current_time());
+        self.last_press_time + 500_000_000 > get_current_time()
+    }
+}
+
+fn get_current_time() -> u64 {
+    let time = SystemTime::now();
+
+    time.duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos() as u64
+}
+
+static mut INSPECTOR: Option<WebInspector> = None;
+static mut INSPECTOR_VISIBLE: bool = false;
 static mut WEB_VIEW: Option<WebView> = None;
+static mut LEADER_KEY: Option<LastKey> = None;
+
+fn init_leader_key() {
+    let key = Key::space;
+
+    unsafe {
+        LEADER_KEY = Some(LastKey::new(key, 0));
+    };
+}
+
+fn leader_key() -> &'static LastKey {
+    unsafe { LEADER_KEY.as_ref().unwrap() }
+}
 
 fn inspector() -> &'static WebInspector {
     unsafe { INSPECTOR.as_ref().unwrap() }
@@ -25,7 +67,7 @@ fn init_inspector(webview: &WebView) {
 
     inspector().connect_closed(|_| {
         unsafe {
-            IS_INSPECTOR_VISIBLE = false;
+            INSPECTOR_VISIBLE = false;
         };
     });
 }
@@ -136,6 +178,19 @@ fn window_kb_input(
         return Propagation::Stop;
     }
 
+    let leader_key = leader_key();
+    if key == leader_key.key {
+        if leader_key.is_composing() {
+            console_log("IS COMPSING A COMMAND");
+        }
+
+        unsafe {
+            LEADER_KEY = Some(LastKey::new(key, get_current_time()));
+        };
+
+        return Propagation::Stop;
+    }
+
     Propagation::Proceed
 }
 
@@ -185,12 +240,12 @@ fn webkit_kb_input(
     if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
         let inspector = inspector();
 
-        if unsafe { IS_INSPECTOR_VISIBLE } {
+        if unsafe { INSPECTOR_VISIBLE } {
             inspector.close();
-            unsafe { IS_INSPECTOR_VISIBLE = false };
+            unsafe { INSPECTOR_VISIBLE = false };
         } else {
             inspector.show();
-            unsafe { IS_INSPECTOR_VISIBLE = true };
+            unsafe { INSPECTOR_VISIBLE = true };
         }
 
         // Prevents GTK inspector from showing up
@@ -207,9 +262,9 @@ fn webkit_kb_input(
         return Propagation::Stop;
     }
 
-    if key == Key::from_name("Escape").unwrap() && unsafe { IS_INSPECTOR_VISIBLE } {
+    if key == Key::from_name("Escape").unwrap() && unsafe { INSPECTOR_VISIBLE } {
         inspector().close();
-        unsafe { IS_INSPECTOR_VISIBLE = false };
+        unsafe { INSPECTOR_VISIBLE = false };
     }
 
     Propagation::Proceed
@@ -222,6 +277,14 @@ fn console_log(message: &str) {
     let cancellable: Option<&Cancellable> = None;
 
     webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+}
+
+async fn in_insert_mode() -> bool {
+    let webview = webview();
+
+    let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+
+    webview.evaluate_javascript_future(javascript, None, None).await.unwrap().to_boolean()
 }
 
 fn loaded(webview: &WebView, event: LoadEvent) {
@@ -237,6 +300,7 @@ fn loaded(webview: &WebView, event: LoadEvent) {
 }
 
 fn activate(app: &Application) {
+    init_leader_key();
     init_webview();
     let webview = webview();
 
