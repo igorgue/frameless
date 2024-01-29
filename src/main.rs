@@ -9,7 +9,9 @@ use adw::{Application, ApplicationWindow};
 use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView};
 
 const LEADER_KEY: Key = Key::semicolon;
+const LEADER_KEY_COMPOSE_TIME: u64 = 500;
 const SCROLL_AMOUNT: i32 = 20;
+
 static mut INSPECTOR: Option<WebInspector> = None;
 static mut INSPECTOR_VISIBLE: bool = false;
 static mut IN_INSERT_MODE: bool = false;
@@ -31,7 +33,7 @@ impl LastLeaderKey {
     }
 
     fn is_composing(&self) -> bool {
-        self.last_press_time + 500 > get_current_time()
+        self.last_press_time + LEADER_KEY_COMPOSE_TIME > get_current_time()
     }
 }
 
@@ -106,7 +108,6 @@ fn show_key_press(key: Key, modifier_state: ModifierType, js_console: bool) {
         res.push_str("Shift+");
     }
     if modifier_state.contains(ModifierType::META_MASK) {
-        // NOTE: Meta is almost never caught the webview or window
         res.push_str("Meta+");
     }
     if modifier_state.contains(ModifierType::CONTROL_MASK) {
