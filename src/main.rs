@@ -1,4 +1,4 @@
-use adw::gdk::{Key, ModifierType};
+use adw::gdk::{Key, ModifierType, KeyEvent};
 use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
@@ -34,28 +34,76 @@ fn init_webview() {
     unsafe { WEB_VIEW = Some(WebView::new()) };
 }
 
-fn show_key_press(key: Key, modifier_state: ModifierType) {
-    if modifier_state.contains(ModifierType::CONTROL_MASK) {
-        print!("Control+");
-    }
+fn show_key_press(key: Key, modifier_state: ModifierType, in_js_console: bool) {
+    let mut res = String::new();
+
     if modifier_state.contains(ModifierType::SHIFT_MASK) {
-        print!("Shift+");
+        res.push_str("Shift+");
+    }
+    if modifier_state.contains(ModifierType::META_MASK) {
+        // NOTE: Meta is almost never caught the webview or window
+        res.push_str("Meta+");
+    }
+    if modifier_state.contains(ModifierType::CONTROL_MASK) {
+        res.push_str("Control+");
+    }
+    if modifier_state.contains(ModifierType::ALT_MASK) {
+        res.push_str("Alt+");
     }
 
     match key.to_unicode() {
-        Some(chr) => println!("{}", chr),
-        None => println!("{:?}", key),
+        Some(chr) => res.push(chr),
+        None => res.push_str(&format!("{:?}", key)),
     };
+
+    if in_js_console {
+        console_log(&res);
+    } else {
+        println!("{}", res);
+    }
 }
 
-fn input(
+fn scrool_down_webview() {
+    print!("Scrolling down... ");
+}
+
+fn window_kb_input(
+    event: &EventControllerKey,
+    key: Key,
+    keycode: u32,
+    modifier_state: ModifierType,
+) -> Propagation {
+    _ = (event, key, keycode, modifier_state);
+
+    print!("[window] ");
+    show_key_press(key, modifier_state, true);
+    show_key_press(key, modifier_state, false);
+
+    if key == Key::j {
+        scrool_down_webview();
+
+        return Propagation::Stop;
+    }
+
+    Propagation::Proceed
+}
+
+fn webkit_kb_input(
     event: &EventControllerKey,
     key: Key,
     keycode: u32,
     modifier_state: ModifierType,
 ) -> Propagation {
     _ = (event, keycode);
-    show_key_press(key, modifier_state);
+    print!("[web_view] ");
+    show_key_press(key, modifier_state, true);
+    show_key_press(key, modifier_state, false);
+
+    if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        scrool_down_webview();
+
+        return Propagation::Stop;
+    }
 
     // Reload
     if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
@@ -78,9 +126,27 @@ fn input(
             inspector.show();
             unsafe { IS_INSPECTOR_VISIBLE = true };
         }
+
+        // Prevents GTK inspector from showing up
+        return Propagation::Stop;
     }
 
-    Propagation::Stop
+    if key == Key::semicolon && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        // Prevents smiley inputs from showing up
+        return Propagation::Stop;
+    }
+
+    if key == Key::period && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        // Prevents smiley inputs from showing up
+        return Propagation::Stop;
+    }
+
+    if key == Key::from_name("Escape").unwrap() && unsafe { IS_INSPECTOR_VISIBLE } {
+        inspector().close();
+        unsafe { IS_INSPECTOR_VISIBLE = false };
+    }
+
+    Propagation::Proceed
 }
 
 fn console_log(message: &str) {
@@ -105,11 +171,13 @@ fn loaded(webview: &WebView, event: LoadEvent) {
 }
 
 fn activate(app: &Application) {
-    let key_pressed_controller = EventControllerKey::new();
-    key_pressed_controller.connect_key_pressed(input);
-
     init_webview();
     let webview = webview();
+
+    let web_view_key_pressed_controller = EventControllerKey::new();
+    web_view_key_pressed_controller.connect_key_pressed(webkit_kb_input);
+    webview.add_controller(web_view_key_pressed_controller);
+
     webview.load_uri("https://crates.io/");
     webview.connect_load_changed(loaded);
 
@@ -125,7 +193,9 @@ fn activate(app: &Application) {
         .content(webview)
         .build();
 
-    window.add_controller(key_pressed_controller);
+    let window_key_pressed_controller = EventControllerKey::new();
+    window_key_pressed_controller.connect_key_pressed(window_kb_input);
+    window.add_controller(window_key_pressed_controller);
 
     window.present();
 }
