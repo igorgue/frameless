@@ -10,8 +10,10 @@ use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView}
 
 const LEADER_KEY: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
-const SCROLL_AMOUNT: i32 = 20;
+const SCROLL_AMOUNT: i32 = 100;
+const DEFAULT_HOME: &str = "https://crates.io";
 
+static mut HOME: String = String::new();
 static mut INSPECTOR: Option<WebInspector> = None;
 static mut INSPECTOR_VISIBLE: bool = false;
 static mut IN_INSERT_MODE: bool = false;
@@ -67,6 +69,22 @@ fn leader_key() -> &'static LastLeaderKey {
 
 fn inspector() -> &'static WebInspector {
     unsafe { INSPECTOR.as_ref().unwrap() }
+}
+
+fn home() -> &'static String {
+    unsafe { &HOME }
+}
+
+fn init_home() {
+    if let Ok(value) = std::env::var("BROWSER_HOME") {
+        unsafe {
+            HOME = value;
+        }
+    } else {
+        unsafe {
+            HOME = DEFAULT_HOME.to_string();
+        }
+    }
 }
 
 fn init_inspector(webview: &WebView) {
@@ -225,6 +243,7 @@ fn webkit_kb_input(
 
     update_in_insert_mode();
 
+    // Scrool keys with h, j, k, l
     if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
         scrool_left_webview();
 
@@ -279,6 +298,7 @@ fn webkit_kb_input(
         return Propagation::Stop;
     }
 
+    // Handle leader key
     let leader_key = leader_key();
     if key == leader_key.key {
         if unsafe { IN_INSERT_MODE } {
@@ -356,13 +376,14 @@ fn loaded(webview: &WebView, event: LoadEvent) {
 
 fn activate(app: &Application) {
     init_webview();
+    init_home();
     let webview = webview();
 
     let web_view_key_pressed_controller = EventControllerKey::new();
     web_view_key_pressed_controller.connect_key_pressed(webkit_kb_input);
     webview.add_controller(web_view_key_pressed_controller);
 
-    webview.load_uri("https://crates.io/");
+    webview.load_uri(home().as_str());
     webview.connect_load_changed(loaded);
 
     let settings = WebViewExt::settings(webview).unwrap();
