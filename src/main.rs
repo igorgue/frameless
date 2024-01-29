@@ -99,7 +99,7 @@ fn init_webview() {
     unsafe { WEB_VIEW = Some(WebView::new()) };
 }
 
-fn show_key_press(key: Key, modifier_state: ModifierType, in_js_console: bool) {
+fn show_key_press(key: Key, modifier_state: ModifierType, js_console: bool) {
     let mut res = String::new();
 
     if modifier_state.contains(ModifierType::SHIFT_MASK) {
@@ -121,7 +121,7 @@ fn show_key_press(key: Key, modifier_state: ModifierType, in_js_console: bool) {
         None => res.push_str(&format!("{:?}", key)),
     };
 
-    if in_js_console {
+    if js_console {
         console_log(&res);
     } else {
         println!("{}", res);
@@ -170,10 +170,9 @@ fn window_kb_input(
     keycode: u32,
     modifier_state: ModifierType,
 ) -> Propagation {
-    _ = (event, key, keycode, modifier_state);
+    _ = (event, keycode);
 
     print!("[window] ");
-    show_key_press(key, modifier_state, true);
     show_key_press(key, modifier_state, false);
 
     if key == Key::h {
@@ -217,7 +216,6 @@ fn webkit_kb_input(
 ) -> Propagation {
     _ = (event, keycode);
     print!("[web_view] ");
-    show_key_press(key, modifier_state, true);
     show_key_press(key, modifier_state, false);
 
     update_in_insert_mode();
