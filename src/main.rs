@@ -9,6 +9,7 @@ use adw::{Application, ApplicationWindow};
 use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView};
 
 const LEADER_KEY: Key = Key::semicolon;
+const SCROLL_AMOUNT: i32 = 20;
 static mut INSPECTOR: Option<WebInspector> = None;
 static mut INSPECTOR_VISIBLE: bool = false;
 static mut IN_INSERT_MODE: bool = false;
@@ -46,10 +47,12 @@ fn get_current_time() -> u64 {
         .as_millis() as u64
 }
 
-fn init_leader_key() {
-    unsafe {
-        LEADER_KEY_LAST = Some(LastKey::new(LEADER_KEY, 0));
-    };
+fn window() -> &'static ApplicationWindow {
+    unsafe { WINDOW.as_ref().unwrap() }
+}
+
+fn webview() -> &'static WebView {
+    unsafe { WEB_VIEW.as_ref().unwrap() }
 }
 
 fn leader_key() -> &'static LastKey {
@@ -58,10 +61,6 @@ fn leader_key() -> &'static LastKey {
 
 fn inspector() -> &'static WebInspector {
     unsafe { INSPECTOR.as_ref().unwrap() }
-}
-
-fn webview() -> &'static WebView {
-    unsafe { WEB_VIEW.as_ref().unwrap() }
 }
 
 fn init_inspector(webview: &WebView) {
@@ -76,14 +75,16 @@ fn init_inspector(webview: &WebView) {
     });
 }
 
+fn init_leader_key() {
+    unsafe {
+        LEADER_KEY_LAST = Some(LastKey::new(LEADER_KEY, 0));
+    };
+}
+
 fn init_window(window: ApplicationWindow) {
     unsafe {
         WINDOW = Some(window);
     };
-}
-
-fn window() -> &'static ApplicationWindow {
-    unsafe { WINDOW.as_ref().unwrap() }
 }
 
 fn update_in_insert_mode() {
@@ -129,8 +130,7 @@ fn show_key_press(key: Key, modifier_state: ModifierType, in_js_console: bool) {
 
 fn scrool_down_webview() {
     let webview = webview();
-    let scroll_amount = 20;
-    let javascript = format!("window.scrollBy(0, {})", scroll_amount);
+    let javascript = format!("window.scrollBy(0, {})", SCROLL_AMOUNT);
 
     let cancellable: Option<&Cancellable> = None;
 
@@ -139,8 +139,7 @@ fn scrool_down_webview() {
 
 fn scrool_up_webview() {
     let webview = webview();
-    let scroll_amount = -20;
-    let javascript = format!("window.scrollBy(0, {})", scroll_amount);
+    let javascript = format!("window.scrollBy(0, {})", -SCROLL_AMOUNT);
 
     let cancellable: Option<&Cancellable> = None;
 
@@ -149,8 +148,7 @@ fn scrool_up_webview() {
 
 fn scrool_right_webview() {
     let webview = webview();
-    let scroll_amount = 20;
-    let javascript = format!("window.scrollBy({}, 0)", scroll_amount);
+    let javascript = format!("window.scrollBy({}, 0)", SCROLL_AMOUNT);
 
     let cancellable: Option<&Cancellable> = None;
 
@@ -159,8 +157,7 @@ fn scrool_right_webview() {
 
 fn scrool_left_webview() {
     let webview = webview();
-    let scroll_amount = -20;
-    let javascript = format!("window.scrollBy({}, 0)", scroll_amount);
+    let javascript = format!("window.scrollBy({}, 0)", -SCROLL_AMOUNT);
 
     let cancellable: Option<&Cancellable> = None;
 
