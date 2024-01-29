@@ -5,7 +5,7 @@ use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
 use adw::{Application, ApplicationWindow};
-use webkit::{prelude::*, LoadEvent, WebInspector, WebView};
+use webkit::{prelude::*, javascriptcore, glib, LoadEvent, WebInspector, WebView};
 
 struct LastKey {
     key: Key,
@@ -180,10 +180,6 @@ fn window_kb_input(
 
     let leader_key = leader_key();
     if key == leader_key.key {
-        if leader_key.is_composing() {
-            console_log("IS COMPSING A COMMAND");
-        }
-
         unsafe {
             LEADER_KEY = Some(LastKey::new(key, get_current_time()));
         };
@@ -267,6 +263,26 @@ fn webkit_kb_input(
         unsafe { INSPECTOR_VISIBLE = false };
     }
 
+    let leader_key = leader_key();
+    if key == leader_key.key {
+        insert_mode(|result| {
+            if result.unwrap().to_boolean() {
+                println!("is_input");
+                // unsafe {
+                //     LEADER_KEY = Some(LastKey::new(key, get_current_time()));
+                // };
+            } else {
+                println!("is_not_input");
+            }
+        });
+
+        return Propagation::Stop;
+    } else if leader_key.is_composing() {
+        println!("leader_key.is_composing()");
+
+        return Propagation::Stop;
+    }
+
     Propagation::Proceed
 }
 
@@ -279,12 +295,13 @@ fn console_log(message: &str) {
     webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
 }
 
-async fn in_insert_mode() -> bool {
+fn insert_mode<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(f: F) {
     let webview = webview();
 
     let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+    let cancellable: Option<&Cancellable> = None;
 
-    webview.evaluate_javascript_future(javascript, None, None).await.unwrap().to_boolean()
+    webview.evaluate_javascript(javascript, None, None, cancellable, f);
 }
 
 fn loaded(webview: &WebView, event: LoadEvent) {
