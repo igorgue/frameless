@@ -190,6 +190,7 @@ fn window_kb_input(
     print!("[window] ");
     show_key_press(key, modifier_state, false);
 
+    // Movement
     if key == Key::h {
         scroll_left();
 
@@ -211,6 +212,19 @@ fn window_kb_input(
         return Propagation::Stop;
     }
 
+    // Back / Forward
+    if key == Key::H {
+        webview().go_back();
+
+        return Propagation::Stop;
+    }
+    if key == Key::L {
+        webview().go_forward();
+
+        return Propagation::Stop;
+    }
+
+    // Leader key switches
     let leader_key = leader_key();
     if key == leader_key.key {
         unsafe {
@@ -253,6 +267,18 @@ fn webkit_kb_input(
     }
     if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
         scroll_right();
+
+        return Propagation::Stop;
+    }
+
+    // Back / Forward
+    if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        webview().go_back();
+
+        return Propagation::Stop;
+    }
+    if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        webview().go_forward();
 
         return Propagation::Stop;
     }
