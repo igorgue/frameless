@@ -375,6 +375,7 @@ fn loaded(webview: &WebView, event: LoadEvent) {
 
     run_js(include_str!("vimium/lib/handler_stack.js"), |_| {});
     run_js(include_str!("vimium/lib/dom_utils.js"), |_| {});
+    run_js(include_str!("vimium/lib/utils.js"), |_| {});
     run_js(include_str!("vimium/content_scripts/scroller.js"), |_| {});
 
     run_js("Scroller.init()", |_| {});
