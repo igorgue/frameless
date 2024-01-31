@@ -77,14 +77,8 @@ fn home() -> &'static String {
 }
 
 fn init_home() {
-    if let Ok(value) = std::env::var("BROWSER_HOME") {
-        unsafe {
-            HOME = value;
-        }
-    } else {
-        unsafe {
-            HOME = DEFAULT_HOME.to_string();
-        }
+    unsafe {
+        HOME = std::env::var("BROWSER_HOME").unwrap_or(DEFAULT_HOME.to_string());
     }
 }
 
@@ -170,13 +164,13 @@ fn scroll_up() {
 }
 
 fn scroll_right() {
-    let javascript = "Scroller.scrollTo('x', 'max')";
-    run_js(javascript, |_| {});
+    let javascript = format!("Scroller.scrollBy('x', -1 * {}", SCROLL_AMOUNT);
+    run_js(javascript.as_str(), |_| {});
 }
 
 fn scroll_left() {
-    let javascript = "Scroller.scrollTo('x', 0)";
-    run_js(javascript, |_| {});
+    let javascript = format!("Scroller.scrollBy('x', {}", SCROLL_AMOUNT);
+    run_js(javascript.as_str(), |_| {});
 }
 
 fn window_kb_input(
