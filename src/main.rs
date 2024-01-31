@@ -11,7 +11,7 @@ use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView}
 
 const LEADER_KEY: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
-const SCROLL_AMOUNT: i32 = 20;
+const SCROLL_AMOUNT: i32 = 40;
 const DEFAULT_HOME: &str = "https://crates.io";
 
 static mut HOME: String = String::new();
