@@ -1,3 +1,4 @@
+use std::include_str;
 use std::time::SystemTime;
 
 use adw::gdk::{prelude::*, Key, ModifierType};
@@ -10,7 +11,7 @@ use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView}
 
 const LEADER_KEY: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
-const SCROLL_AMOUNT: i32 = 100;
+const SCROLL_AMOUNT: i32 = 20;
 const DEFAULT_HOME: &str = "https://crates.io";
 
 static mut HOME: String = String::new();
@@ -151,40 +152,31 @@ fn show_key_press(key: Key, modifier_state: ModifierType, js_console: bool) {
     }
 }
 
-fn scrool_down_webview() {
+fn run_js<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(javascript: &str, f: F) {
     let webview = webview();
-    let javascript = format!("window.scrollBy(0, {})", SCROLL_AMOUNT);
+    let c: Option<&Cancellable> = None;
 
-    let cancellable: Option<&Cancellable> = None;
-
-    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+    webview.evaluate_javascript(javascript, None, None, c, f);
 }
 
-fn scrool_up_webview() {
-    let webview = webview();
-    let javascript = format!("window.scrollBy(0, {})", -SCROLL_AMOUNT);
-
-    let cancellable: Option<&Cancellable> = None;
-
-    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+fn scroll_down() {
+    let javascript = format!("Scroller.scrollBy('y', {})", SCROLL_AMOUNT);
+    run_js(javascript.as_str(), |_| {});
 }
 
-fn scrool_right_webview() {
-    let webview = webview();
-    let javascript = format!("window.scrollBy({}, 0)", SCROLL_AMOUNT);
-
-    let cancellable: Option<&Cancellable> = None;
-
-    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+fn scroll_up() {
+    let javascript = format!("Scroller.scrollBy('y', -1 * {})", SCROLL_AMOUNT);
+    run_js(javascript.as_str(), |_| {});
 }
 
-fn scrool_left_webview() {
-    let webview = webview();
-    let javascript = format!("window.scrollBy({}, 0)", -SCROLL_AMOUNT);
+fn scroll_right() {
+    let javascript = "Scroller.scrollTo('x', 'max')";
+    run_js(javascript, |_| {});
+}
 
-    let cancellable: Option<&Cancellable> = None;
-
-    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+fn scroll_left() {
+    let javascript = "Scroller.scrollTo('x', 0)";
+    run_js(javascript, |_| {});
 }
 
 fn window_kb_input(
@@ -199,22 +191,22 @@ fn window_kb_input(
     show_key_press(key, modifier_state, false);
 
     if key == Key::h {
-        scrool_left_webview();
+        scroll_left();
 
         return Propagation::Stop;
     }
     if key == Key::j {
-        scrool_down_webview();
+        scroll_down();
 
         return Propagation::Stop;
     }
     if key == Key::k {
-        scrool_up_webview();
+        scroll_up();
 
         return Propagation::Stop;
     }
     if key == Key::l {
-        scrool_right_webview();
+        scroll_right();
 
         return Propagation::Stop;
     }
@@ -245,22 +237,22 @@ fn webkit_kb_input(
 
     // Scrool keys with h, j, k, l
     if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-        scrool_left_webview();
+        scroll_left();
 
         return Propagation::Stop;
     }
     if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-        scrool_down_webview();
+        scroll_down();
 
         return Propagation::Stop;
     }
     if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-        scrool_up_webview();
+        scroll_up();
 
         return Propagation::Stop;
     }
     if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-        scrool_right_webview();
+        scroll_right();
 
         return Propagation::Stop;
     }
@@ -316,7 +308,7 @@ fn webkit_kb_input(
         }
     } else if leader_key.is_composing() {
         if key == Key::q {
-            println!("Quitting...");
+            println!("[browser] Quitting...");
             quit();
 
             return Propagation::Stop;
@@ -345,21 +337,13 @@ fn webkit_kb_input(
 }
 
 fn console_log(message: &str) {
-    let webview = webview();
-
     let javascript = format!("console.log('{}')", message);
-    let cancellable: Option<&Cancellable> = None;
-
-    webview.evaluate_javascript(javascript.as_str(), None, None, cancellable, |_| {});
+    run_js(javascript.as_str(), |_| {});
 }
 
 fn insert_mode<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(f: F) {
-    let webview = webview();
-
     let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-    let cancellable: Option<&Cancellable> = None;
-
-    webview.evaluate_javascript(javascript, None, None, cancellable, f);
+    run_js(javascript, f);
 }
 
 fn loaded(webview: &WebView, event: LoadEvent) {
@@ -369,7 +353,11 @@ fn loaded(webview: &WebView, event: LoadEvent) {
         return;
     }
 
-    println!("Loaded: {:?}", event);
+    run_js(include_str!("vimium/lib/handler_stack.js"), |_| {});
+    run_js(include_str!("vimium/lib/dom_utils.js"), |_| {});
+    run_js(include_str!("vimium/content_scripts/scroller.js"), |_| {});
+
+    run_js("Scroller.init()", |_| {});
 
     console_log("Hello from Rust!");
 }
