@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-adw = { package = "libadwaita", version = "0.5.3" }
-webkit = { package = "webkit6", version = "0.2.0" }
+adw = { package = "libadwaita", version = "0.6.0" }
+webkit = { package = "webkit6", version = "0.3.0" }
