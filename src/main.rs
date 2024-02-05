@@ -8,7 +8,6 @@ use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
 use adw::{Application, ApplicationWindow};
-
 use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView};
 
 const LEADER_KEY_DEFAULT: Key = Key::semicolon;
@@ -85,23 +84,23 @@ impl Browser {
         self.window.close();
     }
 
-    fn scroll_down(&self) {
-        let javascript = format!("Scroller.scrollBy('y', {})", SCROLL_AMOUNT);
+    fn scroll_down(&self, times: u8) {
+        let javascript = format!("Scroller.scrollBy('y', {} * {})", SCROLL_AMOUNT, times);
         self.run_js(javascript.as_str(), |_| {});
     }
 
-    fn scroll_up(&self) {
-        let javascript = format!("Scroller.scrollBy('y', -1 * {})", SCROLL_AMOUNT);
+    fn scroll_up(&self, times: u8) {
+        let javascript = format!("Scroller.scrollBy('y', -1 * {} * {})", SCROLL_AMOUNT, times);
         self.run_js(javascript.as_str(), |_| {});
     }
 
-    fn scroll_right(&self) {
-        let javascript = format!("Scroller.scrollBy('x', -1 * {}", SCROLL_AMOUNT);
+    fn scroll_right(&self, times: u8) {
+        let javascript = format!("Scroller.scrollBy('x', -1 * {} * {}", SCROLL_AMOUNT, times);
         self.run_js(javascript.as_str(), |_| {});
     }
 
-    fn scroll_left(&self) {
-        let javascript = format!("Scroller.scrollBy('x', {}", SCROLL_AMOUNT);
+    fn scroll_left(&self, times: u8) {
+        let javascript = format!("Scroller.scrollBy('x', {} * {}", SCROLL_AMOUNT, times);
         self.run_js(javascript.as_str(), |_| {});
     }
 
@@ -156,22 +155,22 @@ impl Browser {
 
         // Movement
         if key == Key::h {
-            self.scroll_left();
+            self.scroll_left(1);
 
             return Propagation::Stop;
         }
         if key == Key::j {
-            self.scroll_down();
+            self.scroll_down(1);
 
             return Propagation::Stop;
         }
         if key == Key::k {
-            self.scroll_up();
+            self.scroll_up(1);
 
             return Propagation::Stop;
         }
         if key == Key::l {
-            self.scroll_right();
+            self.scroll_right(1);
 
             return Propagation::Stop;
         }
@@ -220,22 +219,22 @@ impl Browser {
 
         // Scrool keys with h, j, k, l
         if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.scroll_left();
+            self.scroll_left(1);
 
             return Propagation::Stop;
         }
         if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.scroll_down();
+            self.scroll_down(1);
 
             return Propagation::Stop;
         }
         if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.scroll_up();
+            self.scroll_up(1);
 
             return Propagation::Stop;
         }
         if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.scroll_right();
+            self.scroll_right(1);
 
             return Propagation::Stop;
         }
@@ -288,6 +287,8 @@ impl Browser {
         if key == self.leader_key.borrow().key {
             let leader_key_clone = Rc::clone(&self.leader_key);
 
+            // FIXME: Propagation::Stop is not returned here...
+            // but should.
             self.insert_mode(move |res| {
                 if let Ok(value) = res {
                     if value.to_boolean() {
