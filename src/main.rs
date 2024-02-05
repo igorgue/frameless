@@ -21,7 +21,7 @@ struct Browser {
     inspector: WebInspector,
     inspector_visible: bool,
     web_view: WebView,
-    leader_key_last: Rc<RefCell<LastLeaderKey>>,
+    leader_key: Rc<RefCell<LeaderKey>>,
     window: ApplicationWindow,
 }
 
@@ -40,7 +40,7 @@ impl Browser {
             inspector: web_view.inspector().unwrap(),
             inspector_visible: false,
             web_view,
-            leader_key_last: Rc::new(RefCell::new(LastLeaderKey::new(LEADER_KEY_DEFAULT, 0))),
+            leader_key: Rc::new(RefCell::new(LeaderKey::new(LEADER_KEY_DEFAULT, 0))),
             window,
         }
     }
@@ -139,7 +139,7 @@ impl Browser {
     }
 
     fn update_leader_key(&mut self, key: Key) {
-        self.leader_key_last = Rc::new(RefCell::new(LastLeaderKey::new(key, get_current_time())));
+        self.leader_key = Rc::new(RefCell::new(LeaderKey::new(key, get_current_time())));
     }
 
     fn window_kb_input(
@@ -193,7 +193,7 @@ impl Browser {
             self.update_leader_key(key);
 
             return Propagation::Stop;
-        } else if self.leader_key_last.borrow_mut().is_composing() {
+        } else if self.leader_key.borrow_mut().is_composing() {
             if key == Key::q {
                 println!("[browser] Quitting...");
                 self.quit();
@@ -285,25 +285,22 @@ impl Browser {
         }
 
         // Handle leader key
-        if key == self.leader_key_last.borrow().key {
-            // if self.in_insert_mode {
-            //     if modifier_state.contains(ModifierType::CONTROL_MASK) {
-            //         self.leader_key_last = LastLeaderKey::new(key, get_current_time());
-            //
-            //         return Propagation::Stop;
-            //     }
-            // } else {
-            //     self.leader_key_last = LastLeaderKey::new(key, get_current_time());
-            // }
-            let leader_key_clone = Rc::clone(&self.leader_key_last);
-            // self.insert_mode(|res| {
-            //     if let Ok(value) = res {
-            //         if value.to_boolean() {
-            //             self.update_leader_key(key);
-            //         }
-            //     }
-            // });
-        } else if self.leader_key_last.borrow().is_composing() {
+        if key == self.leader_key.borrow().key {
+            let leader_key_clone = Rc::clone(&self.leader_key);
+
+            self.insert_mode(move |res| {
+                if let Ok(value) = res {
+                    if value.to_boolean() {
+                        if modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            *leader_key_clone.borrow_mut() =
+                                LeaderKey::new(key, get_current_time());
+                        }
+                    } else {
+                        *leader_key_clone.borrow_mut() = LeaderKey::new(key, get_current_time());
+                    }
+                }
+            });
+        } else if self.leader_key.borrow().is_composing() {
             if key == Key::q {
                 println!("[browser] Quitting...");
                 self.quit();
@@ -325,10 +322,10 @@ impl Browser {
             return Propagation::Stop;
         }
 
-        // if key == Key::from_name("Escape").unwrap() && self.inspector_visible {
-        //     self.inspector.close();
-        //     self.inspector_visible = false;
-        // }
+        if key == Key::from_name("Escape").unwrap() && self.inspector_visible {
+            self.inspector.close();
+            self.inspector_visible = false;
+        }
 
         Propagation::Proceed
     }
@@ -339,21 +336,21 @@ impl Browser {
     }
 }
 
-struct LastLeaderKey {
+struct LeaderKey {
     key: Key,
-    last_press_time: u64,
+    last: u64,
 }
 
-impl LastLeaderKey {
+impl LeaderKey {
     fn new(key: Key, last_press_time: u64) -> Self {
         Self {
             key,
-            last_press_time,
+            last: last_press_time,
         }
     }
 
     fn is_composing(&self) -> bool {
-        self.last_press_time + LEADER_KEY_COMPOSE_TIME > get_current_time()
+        self.last + LEADER_KEY_COMPOSE_TIME > get_current_time()
     }
 }
 
