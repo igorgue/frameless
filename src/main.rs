@@ -8,39 +8,48 @@ use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
 use adw::{Application, ApplicationWindow};
-use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebInspector, WebView};
+use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebView};
 
 const LEADER_KEY_DEFAULT: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const SCROLL_AMOUNT: i32 = 40;
 const HOME_DEFAULT: &str = "https://crates.io";
 
-struct Browser {
-    home: String,
-    inspector: WebInspector,
-    inspector_visible: bool,
+struct Page {
+    browser: &'static Browser,
     web_view: WebView,
-    leader_key: Rc<RefCell<LeaderKey>>,
-    window: ApplicationWindow,
+    inspector_visible: bool,
 }
 
-impl Browser {
-    fn new(app: &Application) -> Self {
+impl Page {
+    fn new(browser: &'static Browser, url: &str, developer: bool) -> Self {
         let web_view = WebView::new();
-        let window = ApplicationWindow::builder()
-            .application(app)
-            .title("Browser")
-            .default_width(350)
-            .content(&web_view)
-            .build();
+        web_view.load_uri(url);
+
+        if developer {
+            let settings = WebViewExt::settings(&web_view).unwrap();
+            settings.set_enable_developer_extras(developer);
+
+            let inspector = web_view.inspector().unwrap();
+            inspector.connect_closed(|_| {
+                browser.inspector_visible = false;
+            });
+        }
 
         Self {
-            home: std::env::var("BROWSER_HOME").unwrap_or(HOME_DEFAULT.to_string()),
-            inspector: web_view.inspector().unwrap(),
-            inspector_visible: false,
             web_view,
-            leader_key: Rc::new(RefCell::new(LeaderKey::new(LEADER_KEY_DEFAULT, 0))),
-            window,
+            browser,
+            inspector_visible: false,
+        }
+    }
+
+    fn toggle_inspector(&mut self) {
+        if self.inspector_visible {
+            self.web_view.inspector().unwrap().close();
+            self.inspector_visible = false;
+        } else {
+            self.web_view.inspector().unwrap().show();
+            self.inspector_visible = true;
         }
     }
 
@@ -57,8 +66,6 @@ impl Browser {
         self.run_js(include_str!("vimium/content_scripts/scroller.js"), |_| {});
 
         self.run_js("Scroller.init()", |_| {});
-
-        self.console_log("Hello from Rust!");
     }
 
     fn run_js<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(
@@ -72,35 +79,8 @@ impl Browser {
             .evaluate_javascript(javascript, None, None, c, f);
     }
 
-    fn show(&self) {
-        self.window.present();
-    }
-
-    fn quit(&self) {
-        self.window.application().unwrap().quit();
-    }
-
-    fn close(&self) {
-        self.window.close();
-    }
-
-    fn scroll_down(&self, times: u8) {
-        let javascript = format!("Scroller.scrollBy('y', {} * {})", SCROLL_AMOUNT, times);
-        self.run_js(javascript.as_str(), |_| {});
-    }
-
-    fn scroll_up(&self, times: u8) {
-        let javascript = format!("Scroller.scrollBy('y', -1 * {} * {})", SCROLL_AMOUNT, times);
-        self.run_js(javascript.as_str(), |_| {});
-    }
-
-    fn scroll_right(&self, times: u8) {
-        let javascript = format!("Scroller.scrollBy('x', -1 * {} * {}", SCROLL_AMOUNT, times);
-        self.run_js(javascript.as_str(), |_| {});
-    }
-
-    fn scroll_left(&self, times: u8) {
-        let javascript = format!("Scroller.scrollBy('x', {} * {}", SCROLL_AMOUNT, times);
+    fn console_log(&self, message: &str) {
+        let javascript = format!("console.log('{}')", message);
         self.run_js(javascript.as_str(), |_| {});
     }
 
@@ -132,78 +112,29 @@ impl Browser {
         }
     }
 
+    fn scroll_down(&self, times: u8) {
+        let javascript = format!("Scroller.scrollBy('y', {} * {})", SCROLL_AMOUNT, times);
+        self.run_js(javascript.as_str(), |_| {});
+    }
+
+    fn scroll_up(&self, times: u8) {
+        let javascript = format!("Scroller.scrollBy('y', -1 * {} * {})", SCROLL_AMOUNT, times);
+        self.run_js(javascript.as_str(), |_| {});
+    }
+
+    fn scroll_right(&self, times: u8) {
+        let javascript = format!("Scroller.scrollBy('x', -1 * {} * {}", SCROLL_AMOUNT, times);
+        self.run_js(javascript.as_str(), |_| {});
+    }
+
+    fn scroll_left(&self, times: u8) {
+        let javascript = format!("Scroller.scrollBy('x', {} * {}", SCROLL_AMOUNT, times);
+        self.run_js(javascript.as_str(), |_| {});
+    }
+
     fn insert_mode<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(&self, f: F) {
         let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
         self.run_js(javascript, f);
-    }
-
-    fn update_leader_key(&mut self, key: Key) {
-        self.leader_key = Rc::new(RefCell::new(LeaderKey::new(key, get_current_time())));
-    }
-
-    fn window_kb_input(
-        &mut self,
-        event: &EventControllerKey,
-        key: Key,
-        keycode: u32,
-        modifier_state: ModifierType,
-    ) -> Propagation {
-        _ = (event, keycode);
-
-        print!("[window] ");
-        self.show_key_press(key, modifier_state, false);
-
-        // Movement
-        if key == Key::h {
-            self.scroll_left(1);
-
-            return Propagation::Stop;
-        }
-        if key == Key::j {
-            self.scroll_down(1);
-
-            return Propagation::Stop;
-        }
-        if key == Key::k {
-            self.scroll_up(1);
-
-            return Propagation::Stop;
-        }
-        if key == Key::l {
-            self.scroll_right(1);
-
-            return Propagation::Stop;
-        }
-
-        // Back / Forward
-        if key == Key::H {
-            self.web_view.go_back();
-
-            return Propagation::Stop;
-        }
-        if key == Key::L {
-            self.web_view.go_forward();
-
-            return Propagation::Stop;
-        }
-
-        // Leader key switches
-        if key == LEADER_KEY_DEFAULT {
-            self.update_leader_key(key);
-
-            return Propagation::Stop;
-        } else if self.leader_key.borrow_mut().is_composing() {
-            if key == Key::q {
-                println!("[browser] Quitting...");
-                self.quit();
-
-                return Propagation::Stop;
-            }
-
-            return Propagation::Stop;
-        }
-
-        Propagation::Proceed
     }
 
     fn webkit_kb_input(
@@ -263,13 +194,7 @@ impl Browser {
 
         // Toggle inspector
         if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            if self.inspector_visible {
-                self.inspector.close();
-                self.inspector_visible = false;
-            } else {
-                self.inspector.show();
-                self.inspector_visible = true;
-            }
+            self.toggle_inspector();
 
             // Prevents GTK inspector from showing up
             return Propagation::Stop;
@@ -278,14 +203,14 @@ impl Browser {
         // Close window with Ctrl+w
         if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
             // TODO: Maybe close tab?
-            self.close();
+            self.browser.window.close();
 
             return Propagation::Stop;
         }
 
         // Handle leader key
-        if key == self.leader_key.borrow().key {
-            let leader_key_clone = Rc::clone(&self.leader_key);
+        if key == self.browser.leader_key.borrow().key {
+            let leader_key_clone = Rc::clone(&self.browser.leader_key);
 
             // FIXME: Propagation::Stop is not returned here...
             // but should.
@@ -301,10 +226,10 @@ impl Browser {
                     }
                 }
             });
-        } else if self.leader_key.borrow().is_composing() {
+        } else if self.browser.leader_key.borrow().is_composing() {
             if key == Key::q {
                 println!("[browser] Quitting...");
-                self.quit();
+                self.browser.window.application().unwrap().quit();
 
                 return Propagation::Stop;
             }
@@ -324,17 +249,153 @@ impl Browser {
         }
 
         if key == Key::from_name("Escape").unwrap() && self.inspector_visible {
-            self.inspector.close();
-            self.inspector_visible = false;
+            self.toggle_inspector();
+
+            return Propagation::Stop;
         }
 
         Propagation::Proceed
     }
+}
 
-    fn console_log(&self, message: &str) {
-        let javascript = format!("console.log('{}')", message);
-        self.run_js(javascript.as_str(), |_| {});
+struct Browser {
+    leader_key: Rc<RefCell<LeaderKey>>,
+    window: ApplicationWindow,
+    pages: Vec<Page>,
+}
+
+impl Browser {
+    fn new(app: &Application) -> Self {
+        let tab_bar = adw::TabBar::builder().build();
+        let web_view = WebView::new();
+        let tab_view = adw::TabView::builder().build();
+
+        tab_view.append(&web_view);
+        let page = tab_view.page(&web_view);
+        tab_view.set_selected_page(&page);
+
+        // let another_web_view = WebView::new();
+        // tab_view.append(&another_web_view);
+        // let another_page = tab_view.page(&another_web_view);
+        // another_web_view.load_uri("https://www.rust-lang.org");
+        // tab_view.set_selected_page(&another_page);
+
+        tab_bar.set_view(Some(&tab_view));
+
+        // let header_bar = adw::HeaderBar::new();
+        //
+        // let title_url_entry = adw::gtk::Entry::new();
+        // title_url_entry.set_placeholder_text(Some("Search or enter address"));
+        // title_url_entry.set_hexpand(true);
+        // title_url_entry.set_vexpand(true);
+        //
+        // header_bar.set_title_widget(Some(&title_url_entry));
+        let toolbar_view = adw::ToolbarView::new();
+
+        // toolbar_view.add_top_bar(&header_bar);
+        toolbar_view.add_top_bar(&tab_bar);
+        toolbar_view.set_content(Some(&tab_view));
+
+        // let container = adw::gtk::Box::new(adw::gtk::Orientation::Vertical, 0);
+        // container.append(&web_view);
+
+        // toolbar_view.add_bottom_bar(&container);
+
+        let window = ApplicationWindow::builder()
+            .application(app)
+            .title("Browser")
+            .default_width(350)
+            .content(&toolbar_view)
+            .build();
+
+        Self {
+            // home: std::env::var("BROWSER_HOME").unwrap_or(HOME_DEFAULT.to_string()),
+            leader_key: Rc::new(RefCell::new(LeaderKey::new(LEADER_KEY_DEFAULT, 0))),
+            window,
+            pages: vec![],
+        }
     }
+
+    fn show(&self) {
+        self.window.present();
+    }
+
+    fn quit(&self) {
+        self.window.application().unwrap().quit();
+    }
+
+    fn close(&self) {
+        self.window.close();
+    }
+
+    fn update_leader_key(&mut self, key: Key) {
+        self.leader_key = Rc::new(RefCell::new(LeaderKey::new(key, get_current_time())));
+    }
+
+    // fn window_kb_input(
+    //     &mut self,
+    //     event: &EventControllerKey,
+    //     key: Key,
+    //     keycode: u32,
+    //     modifier_state: ModifierType,
+    // ) -> Propagation {
+    //     _ = (event, keycode);
+    //
+    //     print!("[window] ");
+    //     self.show_key_press(key, modifier_state, false);
+    //
+    //     // Movement
+    //     if key == Key::h {
+    //         self.scroll_left(1);
+    //
+    //         return Propagation::Stop;
+    //     }
+    //     if key == Key::j {
+    //         self.scroll_down(1);
+    //
+    //         return Propagation::Stop;
+    //     }
+    //     if key == Key::k {
+    //         self.scroll_up(1);
+    //
+    //         return Propagation::Stop;
+    //     }
+    //     if key == Key::l {
+    //         self.scroll_right(1);
+    //
+    //         return Propagation::Stop;
+    //     }
+    //
+    //     // Back / Forward
+    //     if key == Key::H {
+    //         self.web_view.go_back();
+    //
+    //         return Propagation::Stop;
+    //     }
+    //     if key == Key::L {
+    //         self.web_view.go_forward();
+    //
+    //         return Propagation::Stop;
+    //     }
+    //
+    //     // Leader key switches
+    //     if key == LEADER_KEY_DEFAULT {
+    //         self.update_leader_key(key);
+    //
+    //         return Propagation::Stop;
+    //     } else if self.leader_key.borrow_mut().is_composing() {
+    //         if key == Key::q {
+    //             println!("[browser] Quitting...");
+    //             self.quit();
+    //
+    //             return Propagation::Stop;
+    //         }
+    //
+    //         return Propagation::Stop;
+    //     }
+    //
+    //     Propagation::Proceed
+    // }
 }
 
 struct LeaderKey {
@@ -366,57 +427,55 @@ fn get_current_time() -> u64 {
 fn activate(app: &Application) {
     let browser = Rc::new(RefCell::new(Browser::new(app)));
 
-    let window_key_pressed_controller = EventControllerKey::new();
-    let browser_clone = Rc::clone(&browser);
+    // let window_key_pressed_controller = EventControllerKey::new();
+    // let browser_clone = Rc::clone(&browser);
 
-    window_key_pressed_controller.connect_key_pressed(
-        move |event, key, keycode, modifier_state| {
-            browser_clone
-                .borrow_mut()
-                .window_kb_input(event, key, keycode, modifier_state)
-        },
-    );
-    browser
-        .borrow()
-        .window
-        .add_controller(window_key_pressed_controller);
+    // window_key_pressed_controller.connect_key_pressed(
+    //     move |event, key, keycode, modifier_state| {
+    //         browser_clone
+    //             .borrow_mut()
+    //             .window_kb_input(event, key, keycode, modifier_state)
+    //     },
+    // );
+    // browser
+    //     .borrow()
+    //     .window
+    //     .add_controller(window_key_pressed_controller);
 
-    let web_view_key_pressed_controller = EventControllerKey::new();
-    let browser_clone = Rc::clone(&browser);
-    web_view_key_pressed_controller.connect_key_pressed(
-        move |event, key, keycode, modifier_state| {
-            browser_clone
-                .borrow_mut()
-                .webkit_kb_input(event, key, keycode, modifier_state)
-        },
-    );
-    browser
-        .borrow()
-        .web_view
-        .add_controller(web_view_key_pressed_controller);
-    browser
-        .borrow()
-        .web_view
-        .load_uri(browser.borrow().home.as_str());
-    let browser_clone = Rc::clone(&browser);
-    browser
-        .borrow()
-        .web_view
-        .connect_load_changed(move |webview, event| {
-            browser_clone.borrow_mut().loaded(webview, event);
-        });
-
-    let settings = WebViewExt::settings(&browser.borrow().web_view).unwrap();
-    settings.set_enable_developer_extras(true);
+    // let web_view_key_pressed_controller = EventControllerKey::new();
+    // let browser_clone = Rc::clone(&browser);
+    // web_view_key_pressed_controller.connect_key_pressed(
+    //     move |event, key, keycode, modifier_state| {
+    //         browser_clone
+    //             .borrow_mut()
+    //             .webkit_kb_input(event, key, keycode, modifier_state)
+    //     },
+    // );
+    // browser
+    //     .borrow()
+    //     .web_view
+    //     .add_controller(web_view_key_pressed_controller);
+    // browser
+    //     .borrow()
+    //     .web_view
+    //     .load_uri(browser.borrow().home.as_str());
+    // let browser_clone = Rc::clone(&browser);
+    // browser
+    //     .borrow()
+    //     .web_view
+    //     .connect_load_changed(move |webview, event| {
+    //         browser_clone.borrow_mut().loaded(webview, event);
+    //     });
+    //
+    // let settings = WebViewExt::settings(&browser.borrow().web_view).unwrap();
+    // settings.set_enable_developer_extras(true);
 
     browser.borrow().window.present();
 
-    let browser_clone = Rc::clone(&browser);
-    browser.borrow().inspector.connect_closed(move |_| {
-        browser_clone.borrow_mut().inspector_visible = false;
-    });
-
-    browser.borrow().show();
+    // let browser_clone = Rc::clone(&browser);
+    // browser.borrow().inspector.connect_closed(move |_| {
+    //     browser_clone.borrow_mut().inspector_visible = false;
+    // });
 }
 
 fn main() {
