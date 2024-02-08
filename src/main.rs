@@ -15,32 +15,48 @@ const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const SCROLL_AMOUNT: i32 = 40;
 const HOME_DEFAULT: &str = "https://crates.io";
 
+#[derive(Clone)]
 struct Page {
+    index: usize,
     browser: &'static Browser,
     web_view: WebView,
     inspector_visible: bool,
 }
 
 impl Page {
-    fn new(browser: &'static Browser, url: &str, developer: bool) -> Self {
+    fn new(browser: &'static Browser, index: usize, developer: bool) -> Self {
         let web_view = WebView::new();
-        web_view.load_uri(url);
+        let inspector_visible = false;
 
         if developer {
             let settings = WebViewExt::settings(&web_view).unwrap();
             settings.set_enable_developer_extras(developer);
-
-            let inspector = web_view.inspector().unwrap();
-            inspector.connect_closed(|_| {
-                browser.inspector_visible = false;
-            });
         }
 
         Self {
             web_view,
             browser,
-            inspector_visible: false,
+            index,
+            inspector_visible,
         }
+    }
+
+    fn load_events(&self, url: &str) {
+        self.web_view.load_uri(url);
+
+        let clone = self.clone();
+        let this = Rc::clone(&Rc::new(RefCell::new(clone)));
+
+        self.web_view.connect_load_changed(move |webview, event| {
+            this.borrow_mut().loaded(webview, event);
+        });
+
+        let clone = self.clone();
+        let this = Rc::clone(&Rc::new(RefCell::new(clone)));
+
+        self.web_view.inspector().unwrap().connect_closed(move |_| {
+            this.borrow_mut().inspector_visible = false;
+        });
     }
 
     fn toggle_inspector(&mut self) {
