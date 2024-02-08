@@ -7,6 +7,7 @@ use adw::gdk::{prelude::*, Key, ModifierType};
 use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
+use adw::prelude::*;
 use adw::{Application, ApplicationWindow};
 use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebView};
 
@@ -18,13 +19,13 @@ const HOME_DEFAULT: &str = "https://crates.io";
 #[derive(Clone)]
 struct Page {
     index: usize,
-    browser: &'static Browser,
+    browser: Browser,
     web_view: WebView,
     inspector_visible: bool,
 }
 
 impl Page {
-    fn new(browser: &'static Browser, index: usize, developer: bool) -> Self {
+    fn new(browser: Browser, index: usize, developer: bool) -> Self {
         let web_view = WebView::new();
         let inspector_visible = false;
 
@@ -41,19 +42,17 @@ impl Page {
         }
     }
 
-    fn load_events(&self, url: &str) {
+    fn load_url(&self, url: &str) {
         self.web_view.load_uri(url);
 
         let clone = self.clone();
         let this = Rc::clone(&Rc::new(RefCell::new(clone)));
-
         self.web_view.connect_load_changed(move |webview, event| {
             this.borrow_mut().loaded(webview, event);
         });
 
         let clone = self.clone();
         let this = Rc::clone(&Rc::new(RefCell::new(clone)));
-
         self.web_view.inspector().unwrap().connect_closed(move |_| {
             this.borrow_mut().inspector_visible = false;
         });
@@ -225,33 +224,33 @@ impl Page {
         }
 
         // Handle leader key
-        if key == self.browser.leader_key.borrow().key {
-            let leader_key_clone = Rc::clone(&self.browser.leader_key);
-
-            // FIXME: Propagation::Stop is not returned here...
-            // but should.
-            self.insert_mode(move |res| {
-                if let Ok(value) = res {
-                    if value.to_boolean() {
-                        if modifier_state.contains(ModifierType::CONTROL_MASK) {
-                            *leader_key_clone.borrow_mut() =
-                                LeaderKey::new(key, get_current_time());
-                        }
-                    } else {
-                        *leader_key_clone.borrow_mut() = LeaderKey::new(key, get_current_time());
-                    }
-                }
-            });
-        } else if self.browser.leader_key.borrow().is_composing() {
-            if key == Key::q {
-                println!("[browser] Quitting...");
-                self.browser.window.application().unwrap().quit();
-
-                return Propagation::Stop;
-            }
-
-            return Propagation::Stop;
-        }
+        // if key == self.browser.leader_key.borrow().key {
+        //     let leader_key_clone = Rc::clone(&self.browser.leader_key);
+        //
+        //     // FIXME: Propagation::Stop is not returned here...
+        //     // but should.
+        //     self.insert_mode(move |res| {
+        //         if let Ok(value) = res {
+        //             if value.to_boolean() {
+        //                 if modifier_state.contains(ModifierType::CONTROL_MASK) {
+        //                     *leader_key_clone.borrow_mut() =
+        //                         LeaderKey::new(key, get_current_time());
+        //                 }
+        //             } else {
+        //                 *leader_key_clone.borrow_mut() = LeaderKey::new(key, get_current_time());
+        //             }
+        //         }
+        //     });
+        // } else if self.browser.leader_key.borrow().is_composing() {
+        //     if key == Key::q {
+        //         println!("[browser] Quitting...");
+        //         self.browser.window.application().unwrap().quit();
+        //
+        //         return Propagation::Stop;
+        //     }
+        //
+        //     return Propagation::Stop;
+        // }
 
         // Remove features from GTK, smiles and add escape
         if key == Key::semicolon && modifier_state.contains(ModifierType::CONTROL_MASK) {
@@ -274,6 +273,7 @@ impl Page {
     }
 }
 
+#[derive(Clone)]
 struct Browser {
     leader_key: Rc<RefCell<LeaderKey>>,
     window: ApplicationWindow,
@@ -441,7 +441,23 @@ fn get_current_time() -> u64 {
 }
 
 fn activate(app: &Application) {
-    let browser = Rc::new(RefCell::new(Browser::new(app)));
+    let mut browser = Browser::new(app);
+
+    let page = Page::new(browser.to_owned(), 0, true);
+
+    browser.pages.push(page);
+    browser.pages[0].load_url(HOME_DEFAULT);
+
+    let content = browser
+        .window
+        .content()
+        .unwrap()
+        .downcast::<adw::ToolbarView>();
+
+    dbg!(content);
+
+    browser.show();
+    // let browser = Rc::new(RefCell::new(Browser::new(app)));
 
     // let window_key_pressed_controller = EventControllerKey::new();
     // let browser_clone = Rc::clone(&browser);
@@ -486,7 +502,7 @@ fn activate(app: &Application) {
     // let settings = WebViewExt::settings(&browser.borrow().web_view).unwrap();
     // settings.set_enable_developer_extras(true);
 
-    browser.borrow().window.present();
+    // browser.borrow().window.present();
 
     // let browser_clone = Rc::clone(&browser);
     // browser.borrow().inspector.connect_closed(move |_| {
