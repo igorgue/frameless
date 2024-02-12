@@ -16,18 +16,21 @@ const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const SCROLL_AMOUNT: i32 = 40;
 const HOME_DEFAULT: &str = "https://crates.io";
 
+static mut BROWSER: Option<Browser> = None;
+
 #[derive(Clone)]
 struct Page {
-    index: usize,
-    browser: Browser,
+    browser: &'static Browser,
+    title: String,
     web_view: WebView,
     inspector_visible: bool,
 }
 
 impl Page {
-    fn new(browser: Browser, index: usize, developer: bool) -> Self {
+    fn new(browser: &'static Browser, index: usize, developer: bool) -> Self {
         let web_view = WebView::new();
         let inspector_visible = false;
+        let title = String::new();
 
         if developer {
             let settings = WebViewExt::settings(&web_view).unwrap();
@@ -37,7 +40,7 @@ impl Page {
         Self {
             web_view,
             browser,
-            index,
+            title,
             inspector_visible,
         }
     }
@@ -441,11 +444,10 @@ fn get_current_time() -> u64 {
 }
 
 fn activate(app: &Application) {
-    let mut browser = Browser::new(app);
+    let browser: &Browser = unsafe { BROWSER.as_ref().unwrap() };
+    let page = Page::new(&browser, 0, true);
 
-    let page = Page::new(browser.to_owned(), 0, true);
-
-    browser.pages.push(page);
+    browser.to_owned().pages.push(page);
     browser.pages[0].load_url(HOME_DEFAULT);
 
     let content = browser
@@ -510,12 +512,20 @@ fn activate(app: &Application) {
     // });
 }
 
+fn init_browser(application: &Application) {
+    unsafe {
+        BROWSER = Some(Browser::new(&application));
+    }
+}
+
 fn main() {
     let application = Application::builder()
         .application_id("com.igorgue.Browser")
         .build();
 
     application.connect_activate(activate);
+
+    init_browser(&application);
 
     application.run();
 }
