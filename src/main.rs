@@ -18,41 +18,47 @@ const HOME_DEFAULT: &str = "https://crates.io";
 
 #[derive(Debug)]
 struct Page {
-    title: String,
     web_view: WebView,
     inspector_visible: bool,
 }
 
 impl Page {
-    fn new(index: usize, developer: bool) -> Self {
+    fn new(developer: bool) -> Rc<RefCell<Self>> {
         let web_view = WebView::new();
         let inspector_visible = false;
-        let title = String::new();
 
         if developer {
             let settings = WebViewExt::settings(&web_view).unwrap();
             settings.set_enable_developer_extras(developer);
         }
 
-        Self {
+        let page = Rc::new(RefCell::new(Self {
             web_view,
-            title,
             inspector_visible,
-        }
+        }));
+
+        page.borrow()
+            .web_view
+            .connect_load_changed(move |web_view, event| {
+                Self::loaded(web_view, event);
+            });
+
+        let page_clone = Rc::clone(&page);
+        page.borrow()
+            .web_view
+            .inspector()
+            .unwrap()
+            .connect_closed(move |_| {
+                let mut page = page_clone.borrow_mut();
+
+                page.inspector_visible = false;
+            });
+
+        page
     }
 
-    fn load_url<'a>(&'a self, url: &str) {
+    fn load_url(&self, url: &str) {
         self.web_view.load_uri(url);
-
-        self.loaded(&self.web_view, LoadEvent::Finished);
-
-        // self.web_view.connect_load_changed(move |webview, event| {
-        //     self.loaded(webview, event);
-        // });
-        //
-        // self.web_view.inspector().unwrap().connect_closed(move |_| {
-        //     self.borrow_mut().inspector_visible = false;
-        // });
     }
 
     fn toggle_inspector(&mut self) {
@@ -65,35 +71,39 @@ impl Page {
         }
     }
 
-    fn loaded(&self, webview: &WebView, event: LoadEvent) {
-        _ = webview;
-
+    fn loaded(web_view: &WebView, event: LoadEvent) {
         if event != LoadEvent::Finished {
             return;
         }
 
-        self.run_js(include_str!("vimium/lib/handler_stack.js"), |_| {});
-        self.run_js(include_str!("vimium/lib/dom_utils.js"), |_| {});
-        self.run_js(include_str!("vimium/lib/utils.js"), |_| {});
-        self.run_js(include_str!("vimium/content_scripts/scroller.js"), |_| {});
-
-        self.run_js("Scroller.init()", |_| {});
+        Self::run_js(
+            web_view,
+            include_str!("vimium/lib/handler_stack.js"),
+            |_| {},
+        );
+        Self::run_js(web_view, include_str!("vimium/lib/dom_utils.js"), |_| {});
+        Self::run_js(web_view, include_str!("vimium/lib/utils.js"), |_| {});
+        Self::run_js(
+            web_view,
+            include_str!("vimium/content_scripts/scroller.js"),
+            |_| {},
+        );
+        Self::run_js(web_view, "Scroller.init()", |_| {});
     }
 
     fn run_js<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(
-        &self,
+        web_view: &WebView,
         javascript: &str,
         f: F,
     ) {
         let c: Option<&Cancellable> = None;
 
-        self.web_view
-            .evaluate_javascript(javascript, None, None, c, f);
+        web_view.evaluate_javascript(javascript, None, None, c, f);
     }
 
     fn console_log(&self, message: &str) {
         let javascript = format!("console.log('{}')", message);
-        self.run_js(javascript.as_str(), |_| {});
+        Self::run_js(&self.web_view, javascript.as_str(), |_| {});
     }
 
     fn show_key_press(&self, key: Key, modifier_state: ModifierType, js_console: bool) {
@@ -126,27 +136,27 @@ impl Page {
 
     fn scroll_down(&self, times: u8) {
         let javascript = format!("Scroller.scrollBy('y', {} * {})", SCROLL_AMOUNT, times);
-        self.run_js(javascript.as_str(), |_| {});
+        Self::run_js(&self.web_view, javascript.as_str(), |_| {});
     }
 
     fn scroll_up(&self, times: u8) {
         let javascript = format!("Scroller.scrollBy('y', -1 * {} * {})", SCROLL_AMOUNT, times);
-        self.run_js(javascript.as_str(), |_| {});
+        Self::run_js(&self.web_view, javascript.as_str(), |_| {});
     }
 
     fn scroll_right(&self, times: u8) {
         let javascript = format!("Scroller.scrollBy('x', -1 * {} * {}", SCROLL_AMOUNT, times);
-        self.run_js(javascript.as_str(), |_| {});
+        Self::run_js(&self.web_view, javascript.as_str(), |_| {});
     }
 
     fn scroll_left(&self, times: u8) {
         let javascript = format!("Scroller.scrollBy('x', {} * {}", SCROLL_AMOUNT, times);
-        self.run_js(javascript.as_str(), |_| {});
+        Self::run_js(&self.web_view, javascript.as_str(), |_| {});
     }
 
     fn insert_mode<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(&self, f: F) {
         let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-        self.run_js(javascript, f);
+        Self::run_js(&self.web_view, javascript, f);
     }
 
     fn webkit_kb_input(
@@ -276,7 +286,7 @@ struct Browser {
     leader_key: Rc<RefCell<LeaderKey>>,
     window: ApplicationWindow,
     tab_bar: adw::TabBar,
-    pages: Vec<Page>,
+    pages: Vec<Rc<RefCell<Page>>>,
 }
 
 impl Browser {
@@ -367,15 +377,15 @@ impl Browser {
     fn new_tab(&mut self) {
         let url = HOME_DEFAULT;
 
-        let page = Page::new(self.pages.len(), true);
-        page.load_url(url);
+        let page = Page::new(true);
+        page.borrow().load_url(url);
 
         self.pages.push(page);
 
         let tab_view = self.tab_bar.view().unwrap();
-        tab_view.append(&self.pages[self.pages.len() - 1].web_view);
+        tab_view.append(&self.pages[self.pages.len() - 1].borrow().web_view);
 
-        let tab_page = tab_view.page(&self.pages[self.pages.len() - 1].web_view);
+        let tab_page = tab_view.page(&self.pages[self.pages.len() - 1].borrow().web_view);
         tab_view.set_selected_page(&tab_page);
     }
 
@@ -392,7 +402,7 @@ impl Browser {
         self.show_key_press(key, modifier_state);
 
         // Leader key switches
-        if key == LEADER_KEY_DEFAULT {
+        if key == self.leader_key.borrow().key {
             self.update_leader_key(key);
 
             return Propagation::Stop;
@@ -487,8 +497,8 @@ fn activate(app: &Application) {
     // browser
     //     .borrow()
     //     .web_view
-    //     .connect_load_changed(move |webview, event| {
-    //         browser_clone.borrow_mut().loaded(webview, event);
+    //     .connect_load_changed(move |web_view, event| {
+    //         browser_clone.borrow_mut().loaded(web_view, event);
     //     });
     //
     // let settings = WebViewExt::settings(&browser.borrow().web_view).unwrap();
