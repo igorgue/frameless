@@ -280,18 +280,19 @@ impl Page {
 struct Browser {
     leader_key: Rc<RefCell<LeaderKey>>,
     window: ApplicationWindow,
+    tab_bar: adw::TabBar,
     pages: Vec<Page>,
 }
 
 impl Browser {
     fn new(app: &Application) -> Self {
         let tab_bar = adw::TabBar::builder().build();
-        let web_view = WebView::new();
+        // let web_view = WebView::new();
         let tab_view = adw::TabView::builder().build();
 
-        tab_view.append(&web_view);
-        let page = tab_view.page(&web_view);
-        tab_view.set_selected_page(&page);
+        // tab_view.append(&web_view);
+        // let page = tab_view.page(&web_view);
+        // tab_view.set_selected_page(&page);
 
         // let another_web_view = WebView::new();
         // tab_view.append(&another_web_view);
@@ -331,6 +332,7 @@ impl Browser {
             // home: std::env::var("BROWSER_HOME").unwrap_or(HOME_DEFAULT.to_string()),
             leader_key: Rc::new(RefCell::new(LeaderKey::new(LEADER_KEY_DEFAULT, 0))),
             window,
+            tab_bar,
             pages: vec![],
         }
     }
@@ -443,22 +445,33 @@ fn get_current_time() -> u64 {
         .as_millis() as u64
 }
 
+fn browser() -> &'static Browser {
+    unsafe { BROWSER.as_ref().unwrap() }
+}
+
+fn window() -> &'static ApplicationWindow {
+    &browser().window
+}
+
 fn activate(app: &Application) {
-    let browser: &Browser = unsafe { BROWSER.as_ref().unwrap() };
-    let page = Page::new(&browser, 0, true);
+    init_browser(app);
 
-    browser.to_owned().pages.push(page);
-    browser.pages[0].load_url(HOME_DEFAULT);
-
-    let content = browser
-        .window
-        .content()
-        .unwrap()
-        .downcast::<adw::ToolbarView>();
-
-    dbg!(content);
-
+    let browser = browser();
     browser.show();
+
+    let page = Page::new(browser, 0, true);
+
+    page.load_url(HOME_DEFAULT);
+    browser.to_owned().pages.push(page.to_owned());
+
+    let tab_bar = browser.to_owned().tab_bar;
+    let tab_view = &tab_bar.view().unwrap();
+
+    tab_view.append(&page.web_view);
+    let tab_page = tab_view.page(&page.web_view);
+    tab_view.set_selected_page(&tab_page);
+
+    // tab_bar.show();
     // let browser = Rc::new(RefCell::new(Browser::new(app)));
 
     // let window_key_pressed_controller = EventControllerKey::new();
@@ -514,7 +527,7 @@ fn activate(app: &Application) {
 
 fn init_browser(application: &Application) {
     unsafe {
-        BROWSER = Some(Browser::new(&application));
+        BROWSER = Some(Browser::new(application));
     }
 }
 
@@ -524,8 +537,6 @@ fn main() {
         .build();
 
     application.connect_activate(activate);
-
-    init_browser(&application);
 
     application.run();
 }
