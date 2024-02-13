@@ -282,39 +282,14 @@ struct Browser {
 impl Browser {
     fn new(app: &Application) -> Rc<RefCell<Self>> {
         let tab_bar = adw::TabBar::builder().build();
-        // let web_view = WebView::new();
         let tab_view = adw::TabView::builder().build();
-
-        // tab_view.append(&web_view);
-        // let page = tab_view.page(&web_view);
-        // tab_view.set_selected_page(&page);
-
-        // let another_web_view = WebView::new();
-        // tab_view.append(&another_web_view);
-        // let another_page = tab_view.page(&another_web_view);
-        // another_web_view.load_uri("https://www.rust-lang.org");
-        // tab_view.set_selected_page(&another_page);
 
         tab_bar.set_view(Some(&tab_view));
 
-        // let header_bar = adw::HeaderBar::new();
-        //
-        // let title_url_entry = adw::gtk::Entry::new();
-        // title_url_entry.set_placeholder_text(Some("Search or enter address"));
-        // title_url_entry.set_hexpand(true);
-        // title_url_entry.set_vexpand(true);
-        //
-        // header_bar.set_title_widget(Some(&title_url_entry));
         let toolbar_view = adw::ToolbarView::new();
 
-        // toolbar_view.add_top_bar(&header_bar);
         toolbar_view.add_top_bar(&tab_bar);
         toolbar_view.set_content(Some(&tab_view));
-
-        // let container = adw::gtk::Box::new(adw::gtk::Orientation::Vertical, 0);
-        // container.append(&web_view);
-
-        // toolbar_view.add_bottom_bar(&container);
 
         let window = ApplicationWindow::builder()
             .application(app)
@@ -324,7 +299,6 @@ impl Browser {
             .build();
 
         let browser = Rc::new(RefCell::new(Self {
-            // home: std::env::var("BROWSER_HOME").unwrap_or(HOME_DEFAULT.to_string()),
             leader_key: Rc::new(RefCell::new(LeaderKey::new(LEADER_KEY_DEFAULT, 0))),
             window,
             tab_bar,
