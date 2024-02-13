@@ -16,8 +16,6 @@ const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const SCROLL_AMOUNT: i32 = 40;
 const HOME_DEFAULT: &str = "https://crates.io";
 
-static mut BROWSER: Option<Browser> = None;
-
 #[derive(Debug)]
 struct Page {
     title: String,
@@ -153,6 +151,7 @@ impl Page {
 
     fn webkit_kb_input(
         &mut self,
+        browser: &mut Browser,
         event: &EventControllerKey,
         key: Key,
         keycode: u32,
@@ -160,7 +159,8 @@ impl Page {
     ) -> Propagation {
         _ = (event, keycode);
         print!("[web_view] ");
-        self.show_key_press(key, modifier_state, false);
+
+        self.show_key_press(key, modifier_state, true);
 
         // Scrool keys with h, j, k, l
         if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
@@ -216,7 +216,7 @@ impl Page {
 
         // Close window with Ctrl+w
         if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            browser().close();
+            browser.close();
 
             return Propagation::Stop;
         }
@@ -280,7 +280,7 @@ struct Browser {
 }
 
 impl Browser {
-    fn new(app: &Application) -> Self {
+    fn new(app: &Application) -> Rc<RefCell<Self>> {
         let tab_bar = adw::TabBar::builder().build();
         // let web_view = WebView::new();
         let tab_view = adw::TabView::builder().build();
@@ -323,13 +323,31 @@ impl Browser {
             .content(&toolbar_view)
             .build();
 
-        Self {
+        let browser = Rc::new(RefCell::new(Self {
             // home: std::env::var("BROWSER_HOME").unwrap_or(HOME_DEFAULT.to_string()),
             leader_key: Rc::new(RefCell::new(LeaderKey::new(LEADER_KEY_DEFAULT, 0))),
             window,
             tab_bar,
             pages: vec![],
-        }
+        }));
+
+        let browser_clone = Rc::clone(&browser);
+        let window_key_pressed_controller = EventControllerKey::new();
+        window_key_pressed_controller.connect_key_pressed(
+            move |event, key, keycode, modifier_state| {
+                let mut browser = browser_clone.borrow_mut();
+
+                browser.window_kb_input(event, key, keycode, modifier_state);
+
+                Propagation::Proceed
+            },
+        );
+        browser
+            .borrow()
+            .window
+            .add_controller(window_key_pressed_controller);
+
+        browser
     }
 
     fn show(&self) {
@@ -341,77 +359,67 @@ impl Browser {
     }
 
     fn close(&self) {
-        self.window.close();
+        todo!("Close tab");
     }
 
     fn update_leader_key(&mut self, key: Key) {
         self.leader_key = Rc::new(RefCell::new(LeaderKey::new(key, get_current_time())));
     }
 
-    // fn window_kb_input(
-    //     &mut self,
-    //     event: &EventControllerKey,
-    //     key: Key,
-    //     keycode: u32,
-    //     modifier_state: ModifierType,
-    // ) -> Propagation {
-    //     _ = (event, keycode);
-    //
-    //     print!("[window] ");
-    //     self.show_key_press(key, modifier_state, false);
-    //
-    //     // Movement
-    //     if key == Key::h {
-    //         self.scroll_left(1);
-    //
-    //         return Propagation::Stop;
-    //     }
-    //     if key == Key::j {
-    //         self.scroll_down(1);
-    //
-    //         return Propagation::Stop;
-    //     }
-    //     if key == Key::k {
-    //         self.scroll_up(1);
-    //
-    //         return Propagation::Stop;
-    //     }
-    //     if key == Key::l {
-    //         self.scroll_right(1);
-    //
-    //         return Propagation::Stop;
-    //     }
-    //
-    //     // Back / Forward
-    //     if key == Key::H {
-    //         self.web_view.go_back();
-    //
-    //         return Propagation::Stop;
-    //     }
-    //     if key == Key::L {
-    //         self.web_view.go_forward();
-    //
-    //         return Propagation::Stop;
-    //     }
-    //
-    //     // Leader key switches
-    //     if key == LEADER_KEY_DEFAULT {
-    //         self.update_leader_key(key);
-    //
-    //         return Propagation::Stop;
-    //     } else if self.leader_key.borrow_mut().is_composing() {
-    //         if key == Key::q {
-    //             println!("[browser] Quitting...");
-    //             self.quit();
-    //
-    //             return Propagation::Stop;
-    //         }
-    //
-    //         return Propagation::Stop;
-    //     }
-    //
-    //     Propagation::Proceed
-    // }
+    fn show_key_press(&self, key: Key, modifier_state: ModifierType) {
+        let mut res = String::new();
+
+        if modifier_state.contains(ModifierType::SHIFT_MASK) {
+            res.push_str("Shift+");
+        }
+        if modifier_state.contains(ModifierType::META_MASK) {
+            res.push_str("Meta+");
+        }
+        if modifier_state.contains(ModifierType::CONTROL_MASK) {
+            res.push_str("Control+");
+        }
+        if modifier_state.contains(ModifierType::ALT_MASK) {
+            res.push_str("Alt+");
+        }
+
+        match key.to_unicode() {
+            Some(chr) => res.push(chr),
+            None => res.push_str(&format!("{:?}", key)),
+        };
+
+        println!("{}", res);
+    }
+
+    fn window_kb_input(
+        &mut self,
+        event: &EventControllerKey,
+        key: Key,
+        keycode: u32,
+        modifier_state: ModifierType,
+    ) -> Propagation {
+        _ = (event, keycode);
+
+        print!("[window] ");
+        self.show_key_press(key, modifier_state);
+
+        // Leader key switches
+        if key == LEADER_KEY_DEFAULT {
+            self.update_leader_key(key);
+
+            return Propagation::Stop;
+        } else if self.leader_key.borrow_mut().is_composing() {
+            if key == Key::q {
+                println!("[browser] Quitting...");
+                self.quit();
+
+                return Propagation::Stop;
+            }
+
+            return Propagation::Stop;
+        }
+
+        Propagation::Proceed
+    }
 }
 
 #[derive(Debug)]
@@ -441,49 +449,25 @@ fn get_current_time() -> u64 {
         .as_millis() as u64
 }
 
-fn browser() -> &'static mut Browser {
-    unsafe { BROWSER.as_mut().unwrap() }
-}
-
-fn window() -> &'static ApplicationWindow {
-    &browser().window
-}
-
 fn activate(app: &Application) {
-    init_browser(app);
+    let mut browser = Browser::new(app);
+    let mut browser_ref = browser.borrow_mut();
 
-    let browser: &mut Browser = browser();
-    browser.show();
+    browser_ref.show();
 
-    let page = Page::new(0, true);
-
-    page.load_url(HOME_DEFAULT);
-
-    browser.pages.push(page);
-
-    let tab_view = browser.tab_bar.view().unwrap();
-
-    tab_view.append(&browser.pages[0].web_view);
-    let tab_page = tab_view.page(&browser.pages[0].web_view);
-    tab_view.set_selected_page(&tab_page);
-
-    browser.tab_bar.show();
-    // let browser = Rc::new(RefCell::new(Browser::new(app)));
-
-    // let window_key_pressed_controller = EventControllerKey::new();
-    // let browser_clone = Rc::clone(&browser);
-
-    // window_key_pressed_controller.connect_key_pressed(
-    //     move |event, key, keycode, modifier_state| {
-    //         browser_clone
-    //             .borrow_mut()
-    //             .window_kb_input(event, key, keycode, modifier_state)
-    //     },
-    // );
-    // browser
-    //     .borrow()
-    //     .window
-    //     .add_controller(window_key_pressed_controller);
+    // let page = Page::new(0, true);
+    //
+    // page.load_url(HOME_DEFAULT);
+    //
+    // browser.pages.push(page);
+    //
+    // let tab_view = browser.tab_bar.view().unwrap();
+    //
+    // tab_view.append(&browser.pages[0].web_view);
+    // let tab_page = tab_view.page(&browser.pages[0].web_view);
+    // tab_view.set_selected_page(&tab_page);
+    //
+    // browser.tab_bar.show();
 
     // let web_view_key_pressed_controller = EventControllerKey::new();
     // let browser_clone = Rc::clone(&browser);
@@ -519,12 +503,6 @@ fn activate(app: &Application) {
     // browser.borrow().inspector.connect_closed(move |_| {
     //     browser_clone.borrow_mut().inspector_visible = false;
     // });
-}
-
-fn init_browser(application: &Application) {
-    unsafe {
-        BROWSER = Some(Browser::new(application));
-    }
 }
 
 fn main() {
