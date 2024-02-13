@@ -390,6 +390,19 @@ impl Browser {
         println!("{}", res);
     }
 
+    fn new_tab(&mut self) {
+        let page = Page::new(self.pages.len(), true);
+
+        page.load_url(HOME_DEFAULT);
+        self.pages.push(page);
+
+        let tab_view = self.tab_bar.view().unwrap();
+        tab_view.append(&self.pages[self.pages.len() - 1].web_view);
+
+        let tab_page = tab_view.page(&self.pages[self.pages.len() - 1].web_view);
+        tab_view.set_selected_page(&tab_page);
+    }
+
     fn window_kb_input(
         &mut self,
         event: &EventControllerKey,
@@ -411,6 +424,14 @@ impl Browser {
             if key == Key::q {
                 println!("[browser] Quitting...");
                 self.quit();
+
+                return Propagation::Stop;
+            }
+
+            if key == Key::n {
+                println!("[browser] New tab...");
+
+                self.new_tab();
 
                 return Propagation::Stop;
             }
@@ -450,8 +471,8 @@ fn get_current_time() -> u64 {
 }
 
 fn activate(app: &Application) {
-    let mut browser = Browser::new(app);
-    let mut browser_ref = browser.borrow_mut();
+    let browser = Browser::new(app);
+    let browser_ref = browser.borrow_mut();
 
     browser_ref.show();
 
