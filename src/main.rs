@@ -391,9 +391,11 @@ impl Browser {
     }
 
     fn new_tab(&mut self) {
-        let page = Page::new(self.pages.len(), true);
+        let url = HOME_DEFAULT;
 
-        page.load_url(HOME_DEFAULT);
+        let page = Page::new(self.pages.len(), true);
+        page.load_url(url);
+
         self.pages.push(page);
 
         let tab_view = self.tab_bar.view().unwrap();
