@@ -3,7 +3,7 @@ use std::include_str;
 use std::rc::Rc;
 use std::time::SystemTime;
 
-use adw::gdk::{prelude::*, Key, ModifierType};
+use adw::gdk::{Key, ModifierType};
 use adw::gio::Cancellable;
 use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
@@ -18,16 +18,15 @@ const HOME_DEFAULT: &str = "https://crates.io";
 
 static mut BROWSER: Option<Browser> = None;
 
-#[derive(Clone)]
+#[derive(Debug)]
 struct Page {
-    browser: &'static Browser,
     title: String,
     web_view: WebView,
     inspector_visible: bool,
 }
 
 impl Page {
-    fn new(browser: &'static Browser, index: usize, developer: bool) -> Self {
+    fn new(index: usize, developer: bool) -> Self {
         let web_view = WebView::new();
         let inspector_visible = false;
         let title = String::new();
@@ -39,26 +38,23 @@ impl Page {
 
         Self {
             web_view,
-            browser,
             title,
             inspector_visible,
         }
     }
 
-    fn load_url(&self, url: &str) {
+    fn load_url<'a>(&'a self, url: &str) {
         self.web_view.load_uri(url);
 
-        let clone = self.clone();
-        let this = Rc::clone(&Rc::new(RefCell::new(clone)));
-        self.web_view.connect_load_changed(move |webview, event| {
-            this.borrow_mut().loaded(webview, event);
-        });
+        self.loaded(&self.web_view, LoadEvent::Finished);
 
-        let clone = self.clone();
-        let this = Rc::clone(&Rc::new(RefCell::new(clone)));
-        self.web_view.inspector().unwrap().connect_closed(move |_| {
-            this.borrow_mut().inspector_visible = false;
-        });
+        // self.web_view.connect_load_changed(move |webview, event| {
+        //     self.loaded(webview, event);
+        // });
+        //
+        // self.web_view.inspector().unwrap().connect_closed(move |_| {
+        //     self.borrow_mut().inspector_visible = false;
+        // });
     }
 
     fn toggle_inspector(&mut self) {
@@ -220,8 +216,7 @@ impl Page {
 
         // Close window with Ctrl+w
         if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            // TODO: Maybe close tab?
-            self.browser.window.close();
+            browser().close();
 
             return Propagation::Stop;
         }
@@ -276,7 +271,7 @@ impl Page {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug)]
 struct Browser {
     leader_key: Rc<RefCell<LeaderKey>>,
     window: ApplicationWindow,
@@ -419,6 +414,7 @@ impl Browser {
     // }
 }
 
+#[derive(Debug)]
 struct LeaderKey {
     key: Key,
     last: u64,
@@ -445,8 +441,8 @@ fn get_current_time() -> u64 {
         .as_millis() as u64
 }
 
-fn browser() -> &'static Browser {
-    unsafe { BROWSER.as_ref().unwrap() }
+fn browser() -> &'static mut Browser {
+    unsafe { BROWSER.as_mut().unwrap() }
 }
 
 fn window() -> &'static ApplicationWindow {
@@ -456,22 +452,22 @@ fn window() -> &'static ApplicationWindow {
 fn activate(app: &Application) {
     init_browser(app);
 
-    let browser = browser();
+    let browser: &mut Browser = browser();
     browser.show();
 
-    let page = Page::new(browser, 0, true);
+    let page = Page::new(0, true);
 
     page.load_url(HOME_DEFAULT);
-    browser.to_owned().pages.push(page.to_owned());
 
-    let tab_bar = browser.to_owned().tab_bar;
-    let tab_view = &tab_bar.view().unwrap();
+    browser.pages.push(page);
 
-    tab_view.append(&page.web_view);
-    let tab_page = tab_view.page(&page.web_view);
+    let tab_view = browser.tab_bar.view().unwrap();
+
+    tab_view.append(&browser.pages[0].web_view);
+    let tab_page = tab_view.page(&browser.pages[0].web_view);
     tab_view.set_selected_page(&tab_page);
 
-    // tab_bar.show();
+    browser.tab_bar.show();
     // let browser = Rc::new(RefCell::new(Browser::new(app)));
 
     // let window_key_pressed_controller = EventControllerKey::new();
