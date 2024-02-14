@@ -43,16 +43,29 @@ impl Page {
                 Self::loaded(web_view, event);
             });
 
-        let page_clone = Rc::clone(&page);
-        page.borrow()
-            .web_view
-            .inspector()
-            .unwrap()
-            .connect_closed(move |_| {
-                let mut page = page_clone.borrow_mut();
-
-                page.inspector_visible = false;
-            });
+        // FIXME: I give up on this, it's not working
+        // this means when the inspector is closed using the "x"
+        // the inspector_visible is not updated
+        //
+        // let page_clone = Rc::clone(&page);
+        // page.borrow()
+        //     .web_view
+        //     .inspector()
+        //     .unwrap()
+        //     .connect_closed(move |_| {
+        //         println!("Inspector closed");
+        //         page_clone.borrow_mut().update_inspector_state(false);
+        //     });
+        //
+        // let page_clone = Rc::clone(&page);
+        // page.borrow()
+        //     .web_view
+        //     .inspector()
+        //     .unwrap()
+        //     .connect_inspected_uri_notify(move |_| {
+        //         println!("Inspector opened");
+        //         page_clone.borrow_mut().update_inspector_state(true);
+        //     });
 
         let web_view_key_pressed_controller = EventControllerKey::new();
         let page_clone = Rc::clone(&page);
@@ -76,11 +89,15 @@ impl Page {
     fn toggle_inspector(&mut self) {
         if self.inspector_visible {
             self.web_view.inspector().unwrap().close();
-            self.inspector_visible = false;
         } else {
             self.web_view.inspector().unwrap().show();
-            self.inspector_visible = true;
         }
+
+        self.update_inspector_state(!self.inspector_visible);
+    }
+
+    fn update_inspector_state(&mut self, is_visible: bool) {
+        self.inspector_visible = is_visible;
     }
 
     fn loaded(web_view: &WebView, event: LoadEvent) {
@@ -179,58 +196,59 @@ impl Page {
         modifier_state: ModifierType,
     ) -> Propagation {
         _ = (event, keycode);
-        dbg!(event);
-        print!("[web_view] ");
+        print!("[webkit] ");
 
         page.borrow().show_key_press(key, modifier_state, true);
 
         let page_clone: Rc<RefCell<Self>> = Rc::clone(&page);
-        page_clone.borrow().insert_mode(move |res| {
+        page.borrow().insert_mode(move |res| {
+            let page_clone_clone = Rc::clone(&page_clone);
             if let Ok(value) = res {
                 if value.to_boolean() {
-                    // // Scrool keys with ctrl + h, j, k, l
+                    // Scrool keys with ctrl + h, j, k, l
                     if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        // self.scroll_left(1);
+                        page_clone_clone.borrow().scroll_left(1);
                     }
-                    // if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                    //     self.scroll_down(1);
-                    // }
-                    // if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                    //     self.scroll_up(1);
-                    // }
-                    // if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                    //     self.scroll_right(1);
-                    // }
-                    println!("test");
+                    if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        page_clone_clone.borrow().scroll_down(1);
+                    }
+                    if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        page_clone_clone.borrow().scroll_up(1);
+                    }
+                    if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        page_clone_clone.borrow().scroll_right(1);
+                    }
+                    // Back / Forward with ctrl + h, l
+                    if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        page_clone_clone.borrow().web_view.go_back();
+                    }
+                    if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        page_clone_clone.borrow().web_view.go_forward();
+                    }
                 } else {
-                    // // Scrool keys with h, j, k, l
-                    // if key == Key::h {
-                    //     self.scroll_left(1);
-                    // }
-                    // if key == Key::j {
-                    //     self.scroll_down(1);
-                    // }
-                    // if key == Key::k {
-                    //     self.scroll_up(1);
-                    // }
-                    // if key == Key::l {
-                    //     self.scroll_right(1);
-                    // }
+                    // Scrool keys with h, j, k, l
+                    if key == Key::h {
+                        page_clone_clone.borrow().scroll_left(1);
+                    }
+                    if key == Key::j {
+                        page_clone_clone.borrow().scroll_down(1);
+                    }
+                    if key == Key::k {
+                        page_clone_clone.borrow().scroll_up(1);
+                    }
+                    if key == Key::l {
+                        page_clone_clone.borrow().scroll_right(1);
+                    }
+                    // Back / Forward with h, l
+                    if key == Key::H {
+                        page_clone_clone.borrow().web_view.go_back();
+                    }
+                    if key == Key::L {
+                        page_clone_clone.borrow().web_view.go_forward();
+                    }
                 }
             }
         });
-
-        // Back / Forward
-        if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            page.borrow().web_view.go_back();
-
-            return Propagation::Stop;
-        }
-        if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            page.borrow().web_view.go_forward();
-
-            return Propagation::Stop;
-        }
 
         // Reload
         if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
@@ -248,6 +266,7 @@ impl Page {
 
         // Toggle inspector
         if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
+            // Page::toggle_inspector(Rc::clone(&page));
             page.borrow_mut().toggle_inspector();
 
             // Prevents GTK inspector from showing up
@@ -255,11 +274,11 @@ impl Page {
         }
 
         // Close window with Ctrl+w
-        // if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
-        //     browser.close();
-        //
-        //     return Propagation::Stop;
-        // }
+        if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
+            page.borrow().web_view.try_close();
+
+            return Propagation::Stop;
+        }
 
         // Handle leader key
         // if key == self.browser.leader_key.borrow().key {
@@ -291,8 +310,10 @@ impl Page {
         // }
 
         // Toggle inspector
+        let page_clone = Rc::clone(&page);
         if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            page.borrow_mut().toggle_inspector();
+            // Page::toggle_inspector(Rc::clone(&page));
+            page_clone.borrow_mut().toggle_inspector();
 
             // Prevents GTK inspector from showing up
             return Propagation::Stop;
@@ -309,8 +330,10 @@ impl Page {
             return Propagation::Stop;
         }
 
-        if key == Key::from_name("Escape").unwrap() && page.borrow().inspector_visible {
-            page.borrow_mut().toggle_inspector();
+        let page_clone = Rc::clone(&page);
+        if key == Key::from_name("Escape").unwrap() && page_clone.borrow().inspector_visible {
+            // Page::toggle_inspector(page_clone);
+            page_clone.borrow_mut().toggle_inspector();
 
             return Propagation::Stop;
         }
@@ -425,6 +448,11 @@ impl Browser {
 
         let tab_page = tab_view.page(&self.pages[self.pages.len() - 1].borrow().web_view);
         tab_view.set_selected_page(&tab_page);
+
+        self.pages[self.pages.len() - 1]
+            .borrow()
+            .web_view
+            .grab_focus();
     }
 
     fn window_kb_input(
