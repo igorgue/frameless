@@ -58,9 +58,8 @@ impl Page {
         let page_clone = Rc::clone(&page);
         web_view_key_pressed_controller.connect_key_pressed(
             move |event, key, keycode, modifier_state| {
-                page_clone
-                    .borrow_mut()
-                    .webkit_kb_input(event, key, keycode, modifier_state)
+                let page_clone_clone = Rc::clone(&page_clone);
+                Page::webkit_kb_input(page_clone_clone, event, key, keycode, modifier_state)
             },
         );
         page.borrow()
@@ -167,70 +166,89 @@ impl Page {
         Self::run_js(&self.web_view, javascript.as_str(), |_| {});
     }
 
-    // fn insert_mode<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(&self, f: F) {
-    //     let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-    //     Self::run_js(&self.web_view, javascript, f);
-    // }
+    fn insert_mode<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(&self, f: F) {
+        let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+        Self::run_js(&self.web_view, javascript, f);
+    }
 
     fn webkit_kb_input(
-        &mut self,
+        page: Rc<RefCell<Self>>,
         event: &EventControllerKey,
         key: Key,
         keycode: u32,
         modifier_state: ModifierType,
     ) -> Propagation {
         _ = (event, keycode);
+        dbg!(event);
         print!("[web_view] ");
 
-        self.show_key_press(key, modifier_state, true);
+        page.borrow().show_key_press(key, modifier_state, true);
 
-        // Scrool keys with h, j, k, l
-        if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.scroll_left(1);
-
-            return Propagation::Stop;
-        }
-        if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.scroll_down(1);
-
-            return Propagation::Stop;
-        }
-        if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.scroll_up(1);
-
-            return Propagation::Stop;
-        }
-        if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.scroll_right(1);
-
-            return Propagation::Stop;
-        }
+        let page_clone: Rc<RefCell<Self>> = Rc::clone(&page);
+        page_clone.borrow().insert_mode(move |res| {
+            if let Ok(value) = res {
+                if value.to_boolean() {
+                    // // Scrool keys with ctrl + h, j, k, l
+                    if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        // self.scroll_left(1);
+                    }
+                    // if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                    //     self.scroll_down(1);
+                    // }
+                    // if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                    //     self.scroll_up(1);
+                    // }
+                    // if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                    //     self.scroll_right(1);
+                    // }
+                    println!("test");
+                } else {
+                    // // Scrool keys with h, j, k, l
+                    // if key == Key::h {
+                    //     self.scroll_left(1);
+                    // }
+                    // if key == Key::j {
+                    //     self.scroll_down(1);
+                    // }
+                    // if key == Key::k {
+                    //     self.scroll_up(1);
+                    // }
+                    // if key == Key::l {
+                    //     self.scroll_right(1);
+                    // }
+                }
+            }
+        });
 
         // Back / Forward
         if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.web_view.go_back();
+            page.borrow().web_view.go_back();
 
             return Propagation::Stop;
         }
         if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.web_view.go_forward();
+            page.borrow().web_view.go_forward();
 
             return Propagation::Stop;
         }
 
         // Reload
         if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.web_view.reload();
+            page.borrow().web_view.reload();
+
+            return Propagation::Stop;
         }
 
         // Reload harder.
         if key == Key::R && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.web_view.reload_bypass_cache();
+            page.borrow().web_view.reload_bypass_cache();
+
+            return Propagation::Stop;
         }
 
         // Toggle inspector
         if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            self.toggle_inspector();
+            page.borrow_mut().toggle_inspector();
 
             // Prevents GTK inspector from showing up
             return Propagation::Stop;
@@ -272,6 +290,14 @@ impl Page {
         //     return Propagation::Stop;
         // }
 
+        // Toggle inspector
+        if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
+            page.borrow_mut().toggle_inspector();
+
+            // Prevents GTK inspector from showing up
+            return Propagation::Stop;
+        }
+
         // Remove features from GTK, smiles and add escape
         if key == Key::semicolon && modifier_state.contains(ModifierType::CONTROL_MASK) {
             // Prevents smiley inputs from showing up
@@ -283,8 +309,8 @@ impl Page {
             return Propagation::Stop;
         }
 
-        if key == Key::from_name("Escape").unwrap() && self.inspector_visible {
-            self.toggle_inspector();
+        if key == Key::from_name("Escape").unwrap() && page.borrow().inspector_visible {
+            page.borrow_mut().toggle_inspector();
 
             return Propagation::Stop;
         }
@@ -473,55 +499,6 @@ fn activate(app: &Application) {
     let browser_ref = browser.borrow_mut();
 
     browser_ref.show();
-
-    // let page = Page::new(0, true);
-    //
-    // page.load_url(HOME_DEFAULT);
-    //
-    // browser.pages.push(page);
-    //
-    // let tab_view = browser.tab_bar.view().unwrap();
-    //
-    // tab_view.append(&browser.pages[0].web_view);
-    // let tab_page = tab_view.page(&browser.pages[0].web_view);
-    // tab_view.set_selected_page(&tab_page);
-    //
-    // browser.tab_bar.show();
-
-    // let web_view_key_pressed_controller = EventControllerKey::new();
-    // let browser_clone = Rc::clone(&browser);
-    // web_view_key_pressed_controller.connect_key_pressed(
-    //     move |event, key, keycode, modifier_state| {
-    //         browser_clone
-    //             .borrow_mut()
-    //             .webkit_kb_input(event, key, keycode, modifier_state)
-    //     },
-    // );
-    // browser
-    //     .borrow()
-    //     .web_view
-    //     .add_controller(web_view_key_pressed_controller);
-    // browser
-    //     .borrow()
-    //     .web_view
-    //     .load_uri(browser.borrow().home.as_str());
-    // let browser_clone = Rc::clone(&browser);
-    // browser
-    //     .borrow()
-    //     .web_view
-    //     .connect_load_changed(move |web_view, event| {
-    //         browser_clone.borrow_mut().loaded(web_view, event);
-    //     });
-    //
-    // let settings = WebViewExt::settings(&browser.borrow().web_view).unwrap();
-    // settings.set_enable_developer_extras(true);
-
-    // browser.borrow().window.present();
-
-    // let browser_clone = Rc::clone(&browser);
-    // browser.borrow().inspector.connect_closed(move |_| {
-    //     browser_clone.borrow_mut().inspector_visible = false;
-    // });
 }
 
 fn main() {
