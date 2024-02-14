@@ -45,7 +45,8 @@ impl Page {
 
         // FIXME: I give up on this, it's not working
         // this means when the inspector is closed using the "x"
-        // the inspector_visible is not updated
+        // the inspector_visible is not updated, the following
+        // code attempts to fix that, but it fails.
         //
         // let page_clone = Rc::clone(&page);
         // page.borrow()
@@ -53,7 +54,6 @@ impl Page {
         //     .inspector()
         //     .unwrap()
         //     .connect_closed(move |_| {
-        //         println!("Inspector closed");
         //         page_clone.borrow_mut().update_inspector_state(false);
         //     });
         //
@@ -63,7 +63,6 @@ impl Page {
         //     .inspector()
         //     .unwrap()
         //     .connect_inspected_uri_notify(move |_| {
-        //         println!("Inspector opened");
         //         page_clone.borrow_mut().update_inspector_state(true);
         //     });
 
