@@ -71,8 +71,8 @@ impl Page {
         let page_clone = Rc::clone(&page);
         web_view_key_pressed_controller.connect_key_pressed(
             move |event, key, keycode, modifier_state| {
-                let page_clone_clone = Rc::clone(&page_clone);
-                Page::webkit_kb_input(page_clone_clone, event, key, keycode, modifier_state)
+                let page_clone = Rc::clone(&page_clone);
+                Page::webkit_kb_input(page_clone, event, key, keycode, modifier_state)
             },
         );
         page.borrow()
@@ -202,49 +202,49 @@ impl Page {
 
         let page_clone: Rc<RefCell<Self>> = Rc::clone(&page);
         page.borrow().insert_mode(move |res| {
-            let page_clone_clone = Rc::clone(&page_clone);
+            let page_clone = Rc::clone(&page_clone);
             if let Ok(value) = res {
                 if value.to_boolean() {
                     // Scrool keys with ctrl + h, j, k, l
                     if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        page_clone_clone.borrow().scroll_left(1);
+                        page_clone.borrow().scroll_left(1);
                     }
                     if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        page_clone_clone.borrow().scroll_down(1);
+                        page_clone.borrow().scroll_down(1);
                     }
                     if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        page_clone_clone.borrow().scroll_up(1);
+                        page_clone.borrow().scroll_up(1);
                     }
                     if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        page_clone_clone.borrow().scroll_right(1);
+                        page_clone.borrow().scroll_right(1);
                     }
                     // Back / Forward with ctrl + h, l
                     if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        page_clone_clone.borrow().web_view.go_back();
+                        page_clone.borrow().web_view.go_back();
                     }
                     if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        page_clone_clone.borrow().web_view.go_forward();
+                        page_clone.borrow().web_view.go_forward();
                     }
                 } else {
                     // Scrool keys with h, j, k, l
                     if key == Key::h {
-                        page_clone_clone.borrow().scroll_left(1);
+                        page_clone.borrow().scroll_left(1);
                     }
                     if key == Key::j {
-                        page_clone_clone.borrow().scroll_down(1);
+                        page_clone.borrow().scroll_down(1);
                     }
                     if key == Key::k {
-                        page_clone_clone.borrow().scroll_up(1);
+                        page_clone.borrow().scroll_up(1);
                     }
                     if key == Key::l {
-                        page_clone_clone.borrow().scroll_right(1);
+                        page_clone.borrow().scroll_right(1);
                     }
                     // Back / Forward with h, l
                     if key == Key::H {
-                        page_clone_clone.borrow().web_view.go_back();
+                        page_clone.borrow().web_view.go_back();
                     }
                     if key == Key::L {
-                        page_clone_clone.borrow().web_view.go_forward();
+                        page_clone.borrow().web_view.go_forward();
                     }
                 }
             }
@@ -458,7 +458,7 @@ impl Browser {
             .borrow()
             .web_view
             .connect_load_changed(move |_, _| {
-                let tab_page_clone_clone = tab_page_clone.clone();
+                let tab_page_clone = tab_page_clone.clone();
 
                 Page::run_js(
                     &page_clone.borrow().web_view,
@@ -466,7 +466,7 @@ impl Browser {
                     move |res| {
                         if let Ok(value) = res {
                             let title = value.to_string();
-                            tab_page_clone_clone.set_title(title.as_str());
+                            tab_page_clone.set_title(title.as_str());
                         }
                     },
                 );
