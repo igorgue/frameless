@@ -54,6 +54,19 @@ impl Page {
                 page.inspector_visible = false;
             });
 
+        let web_view_key_pressed_controller = EventControllerKey::new();
+        let page_clone = Rc::clone(&page);
+        web_view_key_pressed_controller.connect_key_pressed(
+            move |event, key, keycode, modifier_state| {
+                page_clone
+                    .borrow_mut()
+                    .webkit_kb_input(event, key, keycode, modifier_state)
+            },
+        );
+        page.borrow()
+            .web_view
+            .add_controller(web_view_key_pressed_controller);
+
         page
     }
 
@@ -154,14 +167,13 @@ impl Page {
         Self::run_js(&self.web_view, javascript.as_str(), |_| {});
     }
 
-    fn insert_mode<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(&self, f: F) {
-        let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-        Self::run_js(&self.web_view, javascript, f);
-    }
+    // fn insert_mode<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(&self, f: F) {
+    //     let javascript = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+    //     Self::run_js(&self.web_view, javascript, f);
+    // }
 
     fn webkit_kb_input(
         &mut self,
-        browser: &mut Browser,
         event: &EventControllerKey,
         key: Key,
         keycode: u32,
@@ -225,11 +237,11 @@ impl Page {
         }
 
         // Close window with Ctrl+w
-        if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
-            browser.close();
-
-            return Propagation::Stop;
-        }
+        // if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        //     browser.close();
+        //
+        //     return Propagation::Stop;
+        // }
 
         // Handle leader key
         // if key == self.browser.leader_key.borrow().key {
@@ -342,9 +354,9 @@ impl Browser {
         self.window.application().unwrap().quit();
     }
 
-    fn close(&self) {
-        todo!("Close tab");
-    }
+    // fn close(&self) {
+    //     todo!("Close tab");
+    // }
 
     fn update_leader_key(&mut self, key: Key) {
         self.leader_key = Rc::new(RefCell::new(LeaderKey::new(key, get_current_time())));
