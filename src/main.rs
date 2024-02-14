@@ -437,22 +437,42 @@ impl Browser {
 
     fn new_tab(&mut self) {
         let url = HOME_DEFAULT;
+        let developer = true;
 
-        let page = Page::new(true);
+        let page = Page::new(developer);
         page.borrow().load_url(url);
 
         self.pages.push(page);
 
         let tab_view = self.tab_bar.view().unwrap();
-        tab_view.append(&self.pages[self.pages.len() - 1].borrow().web_view);
 
-        let tab_page = tab_view.page(&self.pages[self.pages.len() - 1].borrow().web_view);
+        let index = self.pages.len() - 1;
+        tab_view.append(&self.pages[index].borrow().web_view);
+
+        let tab_page = tab_view.page(&self.pages[index].borrow().web_view);
         tab_view.set_selected_page(&tab_page);
 
-        self.pages[self.pages.len() - 1]
+        let page_clone = Rc::clone(&self.pages[index]);
+        let tab_page_clone = tab_page.clone();
+        self.pages[index]
             .borrow()
             .web_view
-            .grab_focus();
+            .connect_load_changed(move |_, _| {
+                let tab_page_clone_clone = tab_page_clone.clone();
+
+                Page::run_js(
+                    &page_clone.borrow().web_view,
+                    "document.title",
+                    move |res| {
+                        if let Ok(value) = res {
+                            let title = value.to_string();
+                            tab_page_clone_clone.set_title(title.as_str());
+                        }
+                    },
+                );
+            });
+
+        self.pages[index].borrow().web_view.grab_focus();
     }
 
     fn window_kb_input(
