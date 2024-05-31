@@ -157,9 +157,9 @@ impl Page {
 
         if js_console {
             self.console_log(&res);
-        } else {
-            println!("{}", res);
         }
+
+        println!("{}", res);
     }
 
     fn scroll_down(&self, times: u8) {
