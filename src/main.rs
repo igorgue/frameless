@@ -542,18 +542,15 @@ fn get_current_time() -> u64 {
 }
 
 fn activate(app: &Application) {
-    let browser = Browser::new(app);
-    let browser_ref = browser.borrow_mut();
-
-    browser_ref.show();
+    Browser::new(app).borrow_mut().show();
 }
 
-fn main() {
+fn main() -> glib::ExitCode {
     let application = Application::builder()
         .application_id("com.igorgue.Browser")
         .build();
 
     application.connect_activate(activate);
 
-    application.run();
+    application.run()
 }
