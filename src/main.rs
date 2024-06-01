@@ -130,35 +130,62 @@ fn build_ui(app: &Application) {
                                     }
                                 },
                             );
+
+                            let c: Option<&Cancellable> = None;
+
                             webview.evaluate_javascript(
-                                include_str!("vimium/lib/handler_stack.js"),
+                                "if (!window.fml) window.fml = { loaded: false }",
                                 None,
                                 None,
                                 c,
                                 |_| {},
                             );
+
+                            let webview_clone = webview.clone();
                             webview.evaluate_javascript(
-                                include_str!("vimium/lib/dom_utils.js"),
+                                "fml.loaded === false",
                                 None,
                                 None,
                                 c,
-                                |_| {},
+                                move |res| {
+                                    if let Ok(value) = res {
+                                        if value.to_boolean() {
+                                            println!("[frameless] Injecting vimium");
+                                            webview_clone.evaluate_javascript(
+                                                include_str!("vimium/lib/handler_stack.js"),
+                                                None,
+                                                None,
+                                                c,
+                                                |_| {},
+                                            );
+                                            webview_clone.evaluate_javascript(
+                                                include_str!("vimium/lib/dom_utils.js"),
+                                                None,
+                                                None,
+                                                c,
+                                                |_| {},
+                                            );
+                                            webview_clone.evaluate_javascript(
+                                                include_str!("vimium/lib/utils.js"),
+                                                None,
+                                                None,
+                                                c,
+                                                |_| {},
+                                            );
+                                            webview_clone.evaluate_javascript(
+                                                include_str!("vimium/content_scripts/scroller.js"),
+                                                None,
+                                                None,
+                                                c,
+                                                |_| {},
+                                            );
+                                            webview_clone.evaluate_javascript("Scroller.init()", None, None, c, |_| {});
+
+                                            webview_clone.evaluate_javascript("fml.loaded = true", None, None, c, |_| {});
+                                        }
+                                    }
+                                },
                             );
-                            webview.evaluate_javascript(
-                                include_str!("vimium/lib/utils.js"),
-                                None,
-                                None,
-                                c,
-                                |_| {},
-                            );
-                            webview.evaluate_javascript(
-                                include_str!("vimium/content_scripts/scroller.js"),
-                                None,
-                                None,
-                                c,
-                                |_| {},
-                            );
-                            webview.evaluate_javascript("Scroller.init()", None, None, c, |_| {});
                         }
                     });
 
