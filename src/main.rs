@@ -104,6 +104,12 @@ fn build_ui(app: &Application) {
                     let tab_page = tab_view.page(&webviews_ref.borrow()[index]);
                     tab_view.set_selected_page(&tab_page);
 
+                    let webview_clone = webviews_ref.borrow()[index].clone();
+                    webview_clone.connect_create(move |_webview, _nav_action| {
+                        println!("[frameless] New window!");
+                        todo!();
+                    });
+
                     let tab_page_clone = tab_page.clone();
                     let window_clone = window_clone.clone();
                     let webview_clone = webviews_ref.borrow()[index].clone();
