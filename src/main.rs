@@ -9,13 +9,12 @@ use adw::{glib, glib::Propagation};
 use adw::{Application, ApplicationWindow};
 
 use webkit::prelude::*;
-// use webkit::{javascriptcore, LoadEvent, WebView};
-use webkit::{LoadEvent, WebView};
+use webkit::{javascriptcore, LoadEvent, WebView};
 
 const LEADER_KEY_DEFAULT: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const DEFAULT_WINDOW_WIDTH: i32 = 300;
-// const SCROLL_AMOUNT: i32 = 40;
+const SCROLL_AMOUNT: i32 = 22;
 const HOME_DEFAULT: &str = "https://crates.io";
 
 #[derive(Debug, Clone)]
@@ -170,12 +169,51 @@ fn build_ui(app: &Application) {
                                 show_key_press(key, modifier_state);
 
                                 let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+                                let webview_clone_clone_clone = webview_clone_clone.clone();
                                 webview_clone_clone.evaluate_javascript(js, None, None, c, move |res| {
                                     if let Ok(value) = res {
                                         if value.to_boolean() {
-                                            println!("YES insert mode, val: {}", value);
+                                            // Scrool keys with ctrl + h, j, k, l
+                                            if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                                scroll_left(&webview_clone_clone_clone, 1);
+                                            }
+                                            if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                                scroll_down(&webview_clone_clone_clone, 1);
+                                            }
+                                            if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                                scroll_up(&webview_clone_clone_clone, 1);
+                                            }
+                                            if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                                scroll_right(&webview_clone_clone_clone, 1);
+                                            }
+                                            // Back / Forward with ctrl + h, l
+                                            if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                                webview_clone_clone_clone.go_back();
+                                            }
+                                            if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                                webview_clone_clone_clone.go_forward();
+                                            }
                                         } else {
-                                            println!("NO insert mode, val: {}", value);
+                                            // Scrool keys with ctrl + h, j, k, l
+                                            if key == Key::h {
+                                                scroll_left(&webview_clone_clone_clone, 1);
+                                            }
+                                            if key == Key::j {
+                                                scroll_down(&webview_clone_clone_clone, 1);
+                                            }
+                                            if key == Key::k {
+                                                scroll_up(&webview_clone_clone_clone, 1);
+                                            }
+                                            if key == Key::l {
+                                                scroll_right(&webview_clone_clone_clone, 1);
+                                            }
+                                            // Back / Forward with ctrl + h, l
+                                            if key == Key::H {
+                                                webview_clone_clone_clone.go_back();
+                                            }
+                                            if key == Key::L {
+                                                webview_clone_clone_clone.go_forward();
+                                            }
                                         }
                                     }
                                 });
@@ -225,6 +263,37 @@ fn show_key_press(key: Key, modifier_state: ModifierType) {
     };
 
     println!("{}", res);
+}
+
+fn run_js<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(
+    web_view: &WebView,
+    javascript: &str,
+    f: F,
+) {
+    let c: Option<&Cancellable> = None;
+
+    web_view.evaluate_javascript(javascript, None, None, c, f);
+}
+
+fn scroll_up(web_view: &WebView, times: u8) {
+    let js = format!("Scroller.scrollBy('y', -{} * {})", SCROLL_AMOUNT, times);
+    run_js(web_view, js.as_str(), |_| {});
+}
+
+fn scroll_down(web_view: &WebView, times: u8) {
+    let js = format!("Scroller.scrollBy('y', {} * {})", SCROLL_AMOUNT, times);
+
+    run_js(web_view, js.as_str(), |_| {});
+}
+
+fn scroll_left(web_view: &WebView, times: u8) {
+    let js = format!("Scroller.scrollBy('x', -{} * {})", SCROLL_AMOUNT, times);
+    run_js(web_view, js.as_str(), |_| {});
+}
+
+fn scroll_right(web_view: &WebView, times: u8) {
+    let js = format!("Scroller.scrollBy('x', {} * {})", SCROLL_AMOUNT, times);
+    run_js(web_view, js.as_str(), |_| {});
 }
 
 fn get_current_time() -> u64 {
