@@ -100,7 +100,6 @@ fn build_ui(app: &Application) {
 
                     let index = webviews_ref.borrow().len() - 1;
 
-                    println!("Index: {}", index);
                     tab_view.append(&webviews_ref.borrow()[index]);
 
                     let tab_page = tab_view.page(&webviews_ref.borrow()[index]);
@@ -160,107 +159,107 @@ fn build_ui(app: &Application) {
                                 |_| {},
                             );
                             webview.evaluate_javascript("Scroller.init()", None, None, c, |_| {});
-
-                            let webview_key_pressed_controller = EventControllerKey::new();
-                            let webview_clone2 = webview.clone();
-                            webview_key_pressed_controller.connect_key_pressed(move |event, key, keycode, modifier_state| {
-                                _ = (event, keycode);
-
-                                print!("[kbd event] ");
-                                show_key_press(key, modifier_state);
-
-                                // Check if the active element is an input or textarea
-                                // similar to vim insert mode / normal mode distinction
-                                // insert mode should allow all typing keys to work
-                                // normal mode should allow all vim keys to work
-                                let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-                                let webview_clone3 = webview_clone2.clone();
-                                webview_clone2.evaluate_javascript(js, None, None, c, move |res| {
-                                    if let Ok(value) = res {
-                                        // insert mode
-                                        if value.to_boolean() {
-                                            // Scrool keys with ctrl + h, j, k, l
-                                            if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                scroll_left(&webview_clone3, 1);
-                                            }
-                                            if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                scroll_down(&webview_clone3, 1);
-                                            }
-                                            if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                scroll_up(&webview_clone3, 1);
-                                            }
-                                            if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                scroll_right(&webview_clone3, 1);
-                                            }
-                                            // Back / Forward with ctrl + h, l
-                                            if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                webview_clone3.go_back();
-                                            }
-                                            if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                webview_clone3.go_forward();
-                                            }
-                                        // normal mode
-                                        } else {
-                                            // Scrool keys with h, j, k, l
-                                            if key == Key::h {
-                                                scroll_left(&webview_clone3, 1);
-                                            }
-                                            if key == Key::j {
-                                                scroll_down(&webview_clone3, 1);
-                                            }
-                                            if key == Key::k {
-                                                scroll_up(&webview_clone3, 1);
-                                            }
-                                            if key == Key::l {
-                                                scroll_right(&webview_clone3, 1);
-                                            }
-                                            // Back / Forward with H, L
-                                            if key == Key::H {
-                                                webview_clone3.go_back();
-                                            }
-                                            if key == Key::L {
-                                                webview_clone3.go_forward();
-                                            }
-                                            if key == Key::r {
-                                                webview_clone3.reload();
-                                            }
-                                        }
-
-                                        // these keys work for both modes
-
-                                        // Reload with ctrl + r / reload harder with ctrl + R
-                                        if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                            webview_clone3.reload();
-                                        }
-                                        if key == Key::R && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                            webview_clone3.reload_bypass_cache();
-                                        }
-
-                                        // Toggle inspector with ctrl + I
-                                        if developer_extras && key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                            let inspector = webview_clone3.inspector().unwrap();
-
-                                            if inspector.is_attached() {
-                                                inspector.close();
-                                            } else {
-                                                inspector.show();
-                                            }
-                                        }
-                                    }
-                                });
-
-                                // Remove features from GTK, smiles menu
-                                if (key == Key::semicolon || key == Key::period) && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                    return Propagation::Stop;
-                                }
-
-                                Propagation::Proceed
-                            });
-
-                            webview.add_controller(webview_key_pressed_controller);
                         }
                     });
 
+                    let webview_key_pressed_controller = EventControllerKey::new();
+                    let webview_clone2 = webviews_ref.borrow()[index].clone();
+                    webview_key_pressed_controller.connect_key_pressed(move |event, key, keycode, modifier_state| {
+                        _ = (event, keycode);
+
+                        print!("[kbd event] ");
+                        show_key_press(key, modifier_state);
+
+                        // Check if the active element is an input or textarea
+                        // similar to vim insert mode / normal mode distinction
+                        // insert mode should allow all typing keys to work
+                        // normal mode should allow all vim keys to work
+                        let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+                        let webview_clone3 = webview_clone2.clone();
+                        let c: Option<&Cancellable> = None;
+                        webview_clone2.evaluate_javascript(js, None, None, c, move |res| {
+                            if let Ok(value) = res {
+                                // insert mode
+                                if value.to_boolean() {
+                                    // Scrool keys with ctrl + h, j, k, l
+                                    if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        scroll_left(&webview_clone3, 1);
+                                    }
+                                    if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        scroll_down(&webview_clone3, 1);
+                                    }
+                                    if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        scroll_up(&webview_clone3, 1);
+                                    }
+                                    if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        scroll_right(&webview_clone3, 1);
+                                    }
+                                    // Back / Forward with ctrl + h, l
+                                    if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        webview_clone3.go_back();
+                                    }
+                                    if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        webview_clone3.go_forward();
+                                    }
+                                // normal mode
+                                } else {
+                                    // Scrool keys with h, j, k, l
+                                    if key == Key::h {
+                                        scroll_left(&webview_clone3, 1);
+                                    }
+                                    if key == Key::j {
+                                        scroll_down(&webview_clone3, 1);
+                                    }
+                                    if key == Key::k {
+                                        scroll_up(&webview_clone3, 1);
+                                    }
+                                    if key == Key::l {
+                                        scroll_right(&webview_clone3, 1);
+                                    }
+                                    // Back / Forward with H, L
+                                    if key == Key::H {
+                                        webview_clone3.go_back();
+                                    }
+                                    if key == Key::L {
+                                        webview_clone3.go_forward();
+                                    }
+                                    if key == Key::r {
+                                        webview_clone3.reload();
+                                    }
+                                }
+
+                                // these keys work for both modes
+
+                                // Reload with ctrl + r / reload harder with ctrl + R
+                                if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                    webview_clone3.reload();
+                                }
+                                if key == Key::R && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                    webview_clone3.reload_bypass_cache();
+                                }
+
+                                // Toggle inspector with ctrl + I
+                                if developer_extras && key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                    let inspector = webview_clone3.inspector().unwrap();
+
+                                    if inspector.is_attached() {
+                                        inspector.close();
+                                    } else {
+                                        inspector.show();
+                                    }
+                                }
+                            }
+                        });
+
+                        // Remove features from GTK, smiles menu
+                        if (key == Key::semicolon || key == Key::period) && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            return Propagation::Stop;
+                        }
+
+                        Propagation::Proceed
+                    });
+
+                    webviews_ref.borrow()[index].add_controller(webview_key_pressed_controller);
                     webviews_ref.borrow()[index].grab_focus();
 
                     return Propagation::Stop;
