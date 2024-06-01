@@ -3,16 +3,18 @@ use std::time::SystemTime;
 
 use adw::gdk::{Key, ModifierType};
 use adw::gio::Cancellable;
-use adw::glib::Propagation;
 use adw::gtk::EventControllerKey;
 use adw::prelude::*;
+use adw::{glib, glib::Propagation};
 use adw::{Application, ApplicationWindow};
-use webkit::{glib, javascriptcore, prelude::*, LoadEvent, WebView};
+
+use webkit::prelude::*;
+use webkit::{LoadEvent, WebView};
 
 const LEADER_KEY_DEFAULT: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const DEFAULT_WINDOW_WIDTH: i32 = 300;
-const SCROLL_AMOUNT: i32 = 40;
+// const SCROLL_AMOUNT: i32 = 40;
 const HOME_DEFAULT: &str = "https://crates.io";
 
 #[derive(Debug, Clone)]
@@ -87,6 +89,9 @@ fn build_ui(app: &Application) {
                     let url = HOME_DEFAULT;
                     let webview = WebView::new();
 
+                    let settings = WebViewExt::settings(&webview).unwrap();
+                    settings.set_enable_developer_extras(true);
+
                     webview.load_uri(url);
                     webviews_ref.borrow_mut().push(webview);
 
@@ -103,15 +108,14 @@ fn build_ui(app: &Application) {
                     let tab_page_clone = tab_page.clone();
                     let window_clone = window_clone.clone();
                     let webview_clone = webviews_ref.borrow()[index].clone();
-                    // let webview_clone_clone = RefCell::new(webview_clone.clone());
                     webview_clone.connect_load_changed(move |webview, event| {
                         tab_page_clone.set_title("New tab");
 
                         if event == LoadEvent::Finished {
                             let c: Option<&Cancellable> = None;
 
-                            let window_clone_clone = window_clone.clone();
-                            let tab_page_clone_clone = window_clone.clone();
+                            let window_clone = window_clone.clone();
+                            let tab_page_clone = window_clone.clone();
 
                             webview.evaluate_javascript(
                                 "document.title",
@@ -121,11 +125,41 @@ fn build_ui(app: &Application) {
                                 move |res| {
                                     if let Ok(value) = res {
                                         let title = value.to_string();
-                                        tab_page_clone_clone.set_title(Some(title.as_str()));
-                                        window_clone_clone.set_title(Some(title.as_str()));
+                                        tab_page_clone.set_title(Some(title.as_str()));
+                                        window_clone.set_title(Some(title.as_str()));
                                     }
                                 },
                             );
+                            let c: Option<&Cancellable> = None;
+                            webview.evaluate_javascript(
+                                include_str!("vimium/lib/handler_stack.js"),
+                                None,
+                                None,
+                                c,
+                                |_| {},
+                            );
+                            webview.evaluate_javascript(
+                                include_str!("vimium/lib/dom_utils.js"),
+                                None,
+                                None,
+                                c,
+                                |_| {},
+                            );
+                            webview.evaluate_javascript(
+                                include_str!("vimium/lib/utils.js"),
+                                None,
+                                None,
+                                c,
+                                |_| {},
+                            );
+                            webview.evaluate_javascript(
+                                include_str!("vimium/content_scripts/scroller.js"),
+                                None,
+                                None,
+                                c,
+                                |_| {},
+                            );
+                            webview.evaluate_javascript("Scroller.init()", None, None, c, |_| {});
                         }
                     });
 
