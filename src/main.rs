@@ -100,28 +100,27 @@ fn build_ui(app: &Application) {
                     let tab_page = tab_view.page(&webviews_ref.borrow()[index]);
                     tab_view.set_selected_page(&tab_page);
 
-                    let tab_page_ref = RefCell::new(tab_page);
-                    let webviews_ref_copy = RefCell::new(webviews.clone());
+                    let tab_page_clone = tab_page.clone();
                     let window_clone = window_clone.clone();
-                    webviews_ref.borrow()[index].connect_load_changed(move |_, _| {
-                        tab_page_ref.borrow().set_title("New tab");
+                    let webview_clone = webviews_ref.borrow()[index].clone();
+                    let webview_clone_clone = RefCell::new(webview_clone.clone());
+                    webview_clone.connect_load_changed(move |_, _| {
+                        tab_page_clone.set_title("New tab");
                         let c: Option<&Cancellable> = None;
 
-                        let webviews_copy_ref = webviews_ref_copy.borrow_mut();
-                        let webviews_copy_ref_clone = webviews_copy_ref.clone();
-                        let tab_page_ref_clone = tab_page_ref.clone();
-                        let window_clone = window_clone.clone();
-                        webviews_copy_ref_clone[index].evaluate_javascript(
+                        let window_clone_clone = window_clone.clone();
+                        let tab_page_clone_clone = window_clone.clone();
+                        webview_clone_clone.borrow().evaluate_javascript(
                             "document.title",
                             None,
                             None,
                             c,
                             move |res| {
-                                // if let Ok(value) = res {
-                                //     let title = value.to_string();
-                                //     tab_page_ref_clone.borrow().set_title(title.as_str());
-                                //     window_clone.set_title(Some(title.as_str()));
-                                // }
+                                if let Ok(value) = res {
+                                    let title = value.to_string();
+                                    tab_page_clone_clone.set_title(Some(title.as_str()));
+                                    window_clone_clone.set_title(Some(title.as_str()));
+                                }
                             },
                         );
                     });
