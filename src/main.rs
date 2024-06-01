@@ -107,7 +107,11 @@ fn build_ui(app: &Application) {
                     let webview_clone = webviews_ref.borrow()[index].clone();
                     webview_clone.connect_create(move |_webview, _nav_action| {
                         println!("[frameless] New window!");
-                        todo!();
+
+                        // Here's how to return a widget:
+                        // let new_webview = WebView::new();
+                        // new_webview.upcast::<adw::gtk::Widget>()
+                        todo!("Implement new window, by adding a new tab");
                     });
 
                     let tab_page_clone = tab_page.clone();
