@@ -161,7 +161,7 @@ fn build_ui(app: &Application) {
                             webview.evaluate_javascript("Scroller.init()", None, None, c, |_| {});
 
                             let webview_key_pressed_controller = EventControllerKey::new();
-                            let webview_clone_clone = webview.clone();
+                            let webview_clone2 = webview.clone();
                             webview_key_pressed_controller.connect_key_pressed(move |event, key, keycode, modifier_state| {
                                 _ = (event, keycode);
 
@@ -169,50 +169,50 @@ fn build_ui(app: &Application) {
                                 show_key_press(key, modifier_state);
 
                                 let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-                                let webview_clone_clone_clone = webview_clone_clone.clone();
-                                webview_clone_clone.evaluate_javascript(js, None, None, c, move |res| {
+                                let webview_clone3 = webview_clone2.clone();
+                                webview_clone2.evaluate_javascript(js, None, None, c, move |res| {
                                     if let Ok(value) = res {
                                         if value.to_boolean() {
                                             // Scrool keys with ctrl + h, j, k, l
                                             if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                scroll_left(&webview_clone_clone_clone, 1);
+                                                scroll_left(&webview_clone3, 1);
                                             }
                                             if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                scroll_down(&webview_clone_clone_clone, 1);
+                                                scroll_down(&webview_clone3, 1);
                                             }
                                             if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                scroll_up(&webview_clone_clone_clone, 1);
+                                                scroll_up(&webview_clone3, 1);
                                             }
                                             if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                scroll_right(&webview_clone_clone_clone, 1);
+                                                scroll_right(&webview_clone3, 1);
                                             }
                                             // Back / Forward with ctrl + h, l
                                             if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                webview_clone_clone_clone.go_back();
+                                                webview_clone3.go_back();
                                             }
                                             if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                webview_clone_clone_clone.go_forward();
+                                                webview_clone3.go_forward();
                                             }
                                         } else {
                                             // Scrool keys with ctrl + h, j, k, l
                                             if key == Key::h {
-                                                scroll_left(&webview_clone_clone_clone, 1);
+                                                scroll_left(&webview_clone3, 1);
                                             }
                                             if key == Key::j {
-                                                scroll_down(&webview_clone_clone_clone, 1);
+                                                scroll_down(&webview_clone3, 1);
                                             }
                                             if key == Key::k {
-                                                scroll_up(&webview_clone_clone_clone, 1);
+                                                scroll_up(&webview_clone3, 1);
                                             }
                                             if key == Key::l {
-                                                scroll_right(&webview_clone_clone_clone, 1);
+                                                scroll_right(&webview_clone3, 1);
                                             }
                                             // Back / Forward with ctrl + h, l
                                             if key == Key::H {
-                                                webview_clone_clone_clone.go_back();
+                                                webview_clone3.go_back();
                                             }
                                             if key == Key::L {
-                                                webview_clone_clone_clone.go_forward();
+                                                webview_clone3.go_forward();
                                             }
                                         }
                                     }
