@@ -38,6 +38,7 @@ impl LeaderKey {
 }
 
 fn build_ui(app: &Application) {
+    let developer_extras = true;
     let webviews: Vec<WebView> = vec![];
 
     let tab_bar = adw::TabBar::builder().build();
@@ -90,7 +91,7 @@ fn build_ui(app: &Application) {
                     let webview = WebView::new();
 
                     let settings = WebViewExt::settings(&webview).unwrap();
-                    settings.set_enable_developer_extras(true);
+                    settings.set_enable_developer_extras(developer_extras);
 
                     webview.load_uri(url);
                     webviews_ref.borrow_mut().push(webview);
@@ -168,6 +169,10 @@ fn build_ui(app: &Application) {
                                 print!("[kbd event] ");
                                 show_key_press(key, modifier_state);
 
+                                // Check if the active element is an input or textarea
+                                // similar to vim insert mode / normal mode distinction
+                                // insert mode should allow all typing keys to work
+                                // normal mode should allow all vim keys to work
                                 let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
                                 let webview_clone3 = webview_clone2.clone();
                                 webview_clone2.evaluate_javascript(js, None, None, c, move |res| {
@@ -192,9 +197,6 @@ fn build_ui(app: &Application) {
                                             }
                                             if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
                                                 webview_clone3.go_forward();
-                                            }
-                                            if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                                webview_clone3.reload();
                                             }
                                         } else {
                                             // Scrool keys with ctrl + h, j, k, l
@@ -222,15 +224,22 @@ fn build_ui(app: &Application) {
                                             }
                                         }
 
+                                        // Reload with ctrl + r / reload harder with ctrl + R
+                                        if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                            webview_clone3.reload();
+                                        }
                                         if key == Key::R && modifier_state.contains(ModifierType::CONTROL_MASK) {
                                             webview_clone3.reload_bypass_cache();
                                         }
 
-                                        if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                            if webview_clone3.inspector().unwrap().is_attached() {
-                                                webview_clone3.inspector().unwrap().close();
+                                        // Toggle inspector with ctrl + I
+                                        if developer_extras && key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                            let inspector = webview_clone3.inspector().unwrap();
+
+                                            if inspector.is_attached() {
+                                                inspector.close();
                                             } else {
-                                                webview_clone3.inspector().unwrap().show();
+                                                inspector.show();
                                             }
                                         }
                                     }
