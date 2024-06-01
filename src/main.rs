@@ -203,16 +203,6 @@ fn build_ui(app: &Application) {
     window.show();
 }
 
-// fn run_js<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(
-//     web_view: &WebView,
-//     javascript: &str,
-//     f: F,
-// ) {
-//     let c: Option<&Cancellable> = None;
-//
-//     web_view.evaluate_javascript(javascript, None, None, c, f);
-// }
-
 fn show_key_press(key: Key, modifier_state: ModifierType) {
     let mut res = String::new();
 
