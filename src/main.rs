@@ -9,6 +9,7 @@ use adw::{glib, glib::Propagation};
 use adw::{Application, ApplicationWindow};
 
 use webkit::prelude::*;
+// use webkit::{javascriptcore, LoadEvent, WebView};
 use webkit::{LoadEvent, WebView};
 
 const LEADER_KEY_DEFAULT: Key = Key::semicolon;
@@ -130,7 +131,6 @@ fn build_ui(app: &Application) {
                                     }
                                 },
                             );
-                            let c: Option<&Cancellable> = None;
                             webview.evaluate_javascript(
                                 include_str!("vimium/lib/handler_stack.js"),
                                 None,
@@ -160,6 +160,32 @@ fn build_ui(app: &Application) {
                                 |_| {},
                             );
                             webview.evaluate_javascript("Scroller.init()", None, None, c, |_| {});
+
+                            // TODO: we gonna do something here... maybe listen to all keyboard
+                            // events
+                            let webview_key_pressed_controller = EventControllerKey::new();
+                            let webview_clone_clone = webview.clone();
+                            webview_key_pressed_controller.connect_key_pressed(move |event, key, keycode, modifier_state| {
+                                _ = (event, keycode);
+
+                                print!("[kbd event] ");
+                                show_key_press(key, modifier_state);
+
+                                let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+                                webview_clone_clone.evaluate_javascript(js, None, None, c, move |res| {
+                                    if let Ok(value) = res {
+                                        if value.to_boolean() {
+                                            println!("YES insert mode, val: {}", value);
+                                        } else {
+                                            println!("NO insert mode, val: {}", value);
+                                        }
+                                    }
+                                });
+
+                                Propagation::Proceed
+                            });
+
+                            webview.add_controller(webview_key_pressed_controller);
                         }
                     });
 
@@ -178,6 +204,16 @@ fn build_ui(app: &Application) {
     window.add_controller(window_key_pressed_controller);
     window.show();
 }
+
+// fn run_js<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(
+//     web_view: &WebView,
+//     javascript: &str,
+//     f: F,
+// ) {
+//     let c: Option<&Cancellable> = None;
+//
+//     web_view.evaluate_javascript(javascript, None, None, c, f);
+// }
 
 fn show_key_press(key: Key, modifier_state: ModifierType) {
     let mut res = String::new();
