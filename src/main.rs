@@ -448,7 +448,7 @@ impl LeaderKey {
 }
 
 fn build_ui(app: &Application) {
-    let mut webviews: Vec<WebView> = vec![];
+    let webviews: Vec<WebView> = vec![];
 
     let tab_bar = adw::TabBar::builder().build();
     let tab_view = adw::TabView::builder().build();
@@ -472,11 +472,12 @@ fn build_ui(app: &Application) {
     let window_key_pressed_controller = EventControllerKey::new();
     let leader_key_ref = RefCell::new(leader_key);
     let window_ref = RefCell::new(window.clone());
+    let webviews_ref = RefCell::new(webviews.clone());
     window_key_pressed_controller.connect_key_pressed(
         move |event, key, keycode, modifier_state| {
             _ = (event, keycode);
 
-            print!("[window] ");
+            print!("[window kbd event] ");
             show_key_press(key, modifier_state);
 
             if key == leader_key_ref.borrow().key {
@@ -495,7 +496,24 @@ fn build_ui(app: &Application) {
                 if key == Key::n {
                     println!("[browser] New tab...");
 
-                    // self.clone().new_tab();
+                    let url = HOME_DEFAULT;
+                    let webview = WebView::new();
+
+                    webview.load_uri(url);
+                    webviews_ref.borrow_mut().push(webview);
+
+                    let tab_view = tab_bar.view().unwrap();
+
+                    let index = webviews_ref.borrow().len() - 1;
+                    tab_view.append(&webviews_ref.borrow()[index]);
+
+                    let tab_page = tab_view.page(&webviews_ref.borrow()[index]);
+                    tab_view.set_selected_page(&tab_page);
+
+                    webviews_ref.borrow()[index].grab_focus();
+
+                    println!("Webviews: {:?}", webviews_ref.borrow().len());
+
                     return Propagation::Stop;
                 }
 
