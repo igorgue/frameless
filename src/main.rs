@@ -90,7 +90,7 @@ fn build_ui(app: &Application) {
                     let url = HOME_DEFAULT;
                     let webview = WebView::new();
 
-                    add_settings(&webview);
+                    init_settings(&webview);
 
                     webview.load_uri(url);
                     webviews_ref.borrow_mut().push(webview);
@@ -367,7 +367,7 @@ fn scroll_right(web_view: &WebView, times: u8) {
     run_js(web_view, js.as_str(), |_| {});
 }
 
-fn add_settings(web_view: &WebView) {
+fn init_settings(web_view: &WebView) {
     let settings = WebViewExt::settings(web_view).unwrap();
 
     settings.set_enable_developer_extras(true);
@@ -376,6 +376,8 @@ fn add_settings(web_view: &WebView) {
     settings.set_enable_back_forward_navigation_gestures(true);
     settings.set_enable_webgl(true);
     settings.set_enable_webaudio(true);
+    settings.set_javascript_can_open_windows_automatically(true);
+    settings.set_allow_modal_dialogs(true);
 }
 
 fn get_current_time() -> u64 {
