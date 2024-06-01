@@ -201,7 +201,7 @@ fn build_ui(app: &Application) {
                                             }
                                         // normal mode
                                         } else {
-                                            // Scrool keys with ctrl + h, j, k, l
+                                            // Scrool keys with h, j, k, l
                                             if key == Key::h {
                                                 scroll_left(&webview_clone3, 1);
                                             }
@@ -214,7 +214,7 @@ fn build_ui(app: &Application) {
                                             if key == Key::l {
                                                 scroll_right(&webview_clone3, 1);
                                             }
-                                            // Back / Forward with ctrl + h, l
+                                            // Back / Forward with H, L
                                             if key == Key::H {
                                                 webview_clone3.go_back();
                                             }
@@ -248,6 +248,11 @@ fn build_ui(app: &Application) {
                                         }
                                     }
                                 });
+
+                                // Remove features from GTK, smiles menu
+                                if (key == Key::semicolon || key == Key::period) && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                    return Propagation::Stop;
+                                }
 
                                 Propagation::Proceed
                             });
