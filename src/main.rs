@@ -177,6 +177,7 @@ fn build_ui(app: &Application) {
                                 let webview_clone3 = webview_clone2.clone();
                                 webview_clone2.evaluate_javascript(js, None, None, c, move |res| {
                                     if let Ok(value) = res {
+                                        // insert mode
                                         if value.to_boolean() {
                                             // Scrool keys with ctrl + h, j, k, l
                                             if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
@@ -198,6 +199,7 @@ fn build_ui(app: &Application) {
                                             if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
                                                 webview_clone3.go_forward();
                                             }
+                                        // normal mode
                                         } else {
                                             // Scrool keys with ctrl + h, j, k, l
                                             if key == Key::h {
@@ -223,6 +225,8 @@ fn build_ui(app: &Application) {
                                                 webview_clone3.reload();
                                             }
                                         }
+
+                                        // these keys work for both modes
 
                                         // Reload with ctrl + r / reload harder with ctrl + R
                                         if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
