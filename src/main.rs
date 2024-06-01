@@ -90,8 +90,7 @@ fn build_ui(app: &Application) {
                     let url = HOME_DEFAULT;
                     let webview = WebView::new();
 
-                    let settings = WebViewExt::settings(&webview).unwrap();
-                    settings.set_enable_developer_extras(developer_extras);
+                    add_settings(&webview);
 
                     webview.load_uri(url);
                     webviews_ref.borrow_mut().push(webview);
@@ -150,7 +149,8 @@ fn build_ui(app: &Application) {
                                 move |res| {
                                     if let Ok(value) = res {
                                         if value.to_boolean() {
-                                            println!("[frameless] Injecting vimium");
+                                            println!("[frameless] loading vimium...");
+
                                             webview_clone.evaluate_javascript(
                                                 include_str!("vimium/lib/handler_stack.js"),
                                                 None,
@@ -275,6 +275,15 @@ fn build_ui(app: &Application) {
                                         inspector.show();
                                     }
                                 }
+
+                                // Close inspector with escape
+                                if developer_extras && key == Key::Escape {
+                                    let inspector = webview_clone3.inspector().unwrap();
+
+                                    if inspector.is_attached() {
+                                        inspector.close();
+                                    }
+                                }
                             }
                         });
 
@@ -356,6 +365,17 @@ fn scroll_left(web_view: &WebView, times: u8) {
 fn scroll_right(web_view: &WebView, times: u8) {
     let js = format!("Scroller.scrollBy('x', {} * {})", SCROLL_AMOUNT, times);
     run_js(web_view, js.as_str(), |_| {});
+}
+
+fn add_settings(web_view: &WebView) {
+    let settings = WebViewExt::settings(web_view).unwrap();
+
+    settings.set_enable_developer_extras(true);
+    settings.set_enable_caret_browsing(false);
+    settings.set_enable_smooth_scrolling(true);
+    settings.set_enable_back_forward_navigation_gestures(true);
+    settings.set_enable_webgl(true);
+    settings.set_enable_webaudio(true);
 }
 
 fn get_current_time() -> u64 {
