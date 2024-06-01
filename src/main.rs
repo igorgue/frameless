@@ -103,26 +103,30 @@ fn build_ui(app: &Application) {
                     let tab_page_clone = tab_page.clone();
                     let window_clone = window_clone.clone();
                     let webview_clone = webviews_ref.borrow()[index].clone();
-                    let webview_clone_clone = RefCell::new(webview_clone.clone());
-                    webview_clone.connect_load_changed(move |_, _| {
+                    // let webview_clone_clone = RefCell::new(webview_clone.clone());
+                    webview_clone.connect_load_changed(move |webview, event| {
                         tab_page_clone.set_title("New tab");
-                        let c: Option<&Cancellable> = None;
 
-                        let window_clone_clone = window_clone.clone();
-                        let tab_page_clone_clone = window_clone.clone();
-                        webview_clone_clone.borrow().evaluate_javascript(
-                            "document.title",
-                            None,
-                            None,
-                            c,
-                            move |res| {
-                                if let Ok(value) = res {
-                                    let title = value.to_string();
-                                    tab_page_clone_clone.set_title(Some(title.as_str()));
-                                    window_clone_clone.set_title(Some(title.as_str()));
-                                }
-                            },
-                        );
+                        if event == LoadEvent::Finished {
+                            let c: Option<&Cancellable> = None;
+
+                            let window_clone_clone = window_clone.clone();
+                            let tab_page_clone_clone = window_clone.clone();
+
+                            webview.evaluate_javascript(
+                                "document.title",
+                                None,
+                                None,
+                                c,
+                                move |res| {
+                                    if let Ok(value) = res {
+                                        let title = value.to_string();
+                                        tab_page_clone_clone.set_title(Some(title.as_str()));
+                                        window_clone_clone.set_title(Some(title.as_str()));
+                                    }
+                                },
+                            );
+                        }
                     });
 
                     webviews_ref.borrow()[index].grab_focus();
