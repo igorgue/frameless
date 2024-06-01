@@ -54,7 +54,7 @@ fn build_ui(app: &Application) {
 
     let window = ApplicationWindow::builder()
         .application(app)
-        .title("Browser")
+        .title("Frameless")
         .default_width(DEFAULT_WINDOW_WIDTH)
         .content(&toolbar_view)
         .build();
@@ -77,14 +77,14 @@ fn build_ui(app: &Application) {
 
             if leader_key_ref.borrow().is_composing() {
                 if key == Key::q {
-                    println!("[browser] Quitting!");
+                    println!("[frameless] Quitting!");
 
                     window_clone.application().unwrap().quit();
                     return Propagation::Stop;
                 }
 
                 if key == Key::n {
-                    println!("[browser] New tab!");
+                    println!("[frameless] New tab!");
 
                     let url = HOME_DEFAULT;
                     let webview = WebView::new();
