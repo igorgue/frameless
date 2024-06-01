@@ -193,6 +193,9 @@ fn build_ui(app: &Application) {
                                             if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
                                                 webview_clone3.go_forward();
                                             }
+                                            if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                                webview_clone3.reload();
+                                            }
                                         } else {
                                             // Scrool keys with ctrl + h, j, k, l
                                             if key == Key::h {
@@ -213,6 +216,21 @@ fn build_ui(app: &Application) {
                                             }
                                             if key == Key::L {
                                                 webview_clone3.go_forward();
+                                            }
+                                            if key == Key::r {
+                                                webview_clone3.reload();
+                                            }
+                                        }
+
+                                        if key == Key::R && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                            webview_clone3.reload_bypass_cache();
+                                        }
+
+                                        if key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                            if webview_clone3.inspector().unwrap().is_attached() {
+                                                webview_clone3.inspector().unwrap().close();
+                                            } else {
+                                                webview_clone3.inspector().unwrap().show();
                                             }
                                         }
                                     }
