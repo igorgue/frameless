@@ -161,8 +161,6 @@ fn build_ui(app: &Application) {
                             );
                             webview.evaluate_javascript("Scroller.init()", None, None, c, |_| {});
 
-                            // TODO: we gonna do something here... maybe listen to all keyboard
-                            // events
                             let webview_key_pressed_controller = EventControllerKey::new();
                             let webview_clone_clone = webview.clone();
                             webview_key_pressed_controller.connect_key_pressed(move |event, key, keycode, modifier_state| {
