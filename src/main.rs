@@ -8,8 +8,8 @@ use adw::prelude::*;
 use adw::{glib, glib::Propagation};
 use adw::{Application, ApplicationWindow};
 
-use webkit::prelude::*;
-use webkit::{javascriptcore, LoadEvent, WebView};
+use webkit::{javascriptcore, LoadEvent, PolicyDecisionType, WebView, WebsitePolicies};
+use webkit::{prelude::*, NavigationAction, NavigationType};
 
 const LEADER_KEY_DEFAULT: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
@@ -60,10 +60,10 @@ fn build_ui(app: &Application) {
         .content(&toolbar_view)
         .build();
 
-    let window_key_pressed_controller = EventControllerKey::new();
-    let leader_key_ref = RefCell::new(leader_key);
     let window_clone = window.clone();
+    let leader_key_ref = RefCell::new(leader_key);
     let webviews_ref = RefCell::new(webviews.clone());
+    let window_key_pressed_controller = EventControllerKey::new();
     window_key_pressed_controller.connect_key_pressed(
         move |event, key, keycode, modifier_state| {
             _ = (event, keycode);
@@ -105,14 +105,63 @@ fn build_ui(app: &Application) {
                     tab_view.set_selected_page(&tab_page);
 
                     let webview_clone = webviews_ref.borrow()[index].clone();
-                    webview_clone.connect_create(move |_webview, _nav_action| {
-                        println!("[frameless] New window!");
+                    webview_clone.connect_create(move |webview, navigation_action| {
+                        let new_webview = WebView::new();
+                        init_settings(&new_webview);
 
-                        // Here's how to return a widget:
-                        // let new_webview = WebView::new();
-                        // new_webview.upcast::<adw::gtk::Widget>()
-                        todo!("Implement new window, by adding a new tab");
+                        let new_webview_clone = new_webview.clone();
+                        let navigation_action_clone = navigation_action.clone();
+                        webview.connect_decide_policy(move |_, decision, _type| {
+                            if _type == PolicyDecisionType::NewWindowAction {
+                                decision.use_();
+                            }
+
+                            let mut navigation_action_clone = navigation_action_clone.clone();
+                            if let Some(request) = navigation_action_clone.request() {
+                                if let Some(uri) = request.uri() {
+                                    new_webview_clone.load_uri(&uri);
+                                }
+                            }
+
+                            true
+                        });
+
+
+                        let widget = new_webview.upcast::<adw::gtk::Widget>();
+                        tab_view.append(&widget);
+
+                        widget
                     });
+
+                    // let webview_clone = webviews_ref.borrow()[index].clone();
+                    // webview_clone.connect_create(move |webview, _| {
+                    //     webview.connect_decide_policy(move |_, decision, _type| {
+                    //         if _type == PolicyDecisionType::NewWindowAction {
+                    //             decision.ignore();
+                    //         }
+                    //
+                    //         false
+                    //     });
+                    //
+                    //     println!("[frameless] New window!");
+                    //
+                    //     let new_webview = WebView::new();
+                    //     init_settings(&new_webview);
+                    //
+                    //     new_webview.connect_load_changed(move |webview, load_event| {
+                    //         if load_event == LoadEvent::Committed {
+                    //                 if let Some(uri) = webview.uri() {
+                    //                     println!("[frameless] Loading URL: {}", uri);
+                    //                     webview.load_uri(&uri);
+                    //                 }
+                    //         }
+                    //     });
+                    //
+                    //     let widget = new_webview.upcast::<adw::gtk::Widget>();
+                    //     tab_view.append(&widget);
+                    //
+                    //     widget
+                    // });
 
                     let tab_page_clone = tab_page.clone();
                     let window_clone = window_clone.clone();
@@ -124,7 +173,7 @@ fn build_ui(app: &Application) {
                             let c: Option<&Cancellable> = None;
 
                             let window_clone = window_clone.clone();
-                            let tab_page_clone = window_clone.clone();
+                            let tab_page_clone2 = tab_page_clone.clone();
 
                             webview.evaluate_javascript(
                                 "document.title",
@@ -134,7 +183,7 @@ fn build_ui(app: &Application) {
                                 move |res| {
                                     if let Ok(value) = res {
                                         let title = value.to_string();
-                                        tab_page_clone.set_title(Some(title.as_str()));
+                                        tab_page_clone2.set_title(title.as_str());
                                         window_clone.set_title(Some(title.as_str()));
                                     }
                                 },
@@ -319,7 +368,17 @@ fn build_ui(app: &Application) {
     );
 
     window.add_controller(window_key_pressed_controller);
+
     window.show();
+
+    // TODO: add homepage...
+    // let content = "<html><body><h1>Frameless</h1><p>Press <code>;</code> to start typing commands</p></body></html>";
+    // let webview = WebView::new();
+    //
+    // init_settings(&webview);
+    // webview.load_html(content, None);
+
+    // tab_view.append(&webview);
 }
 
 fn show_key_press(key: Key, modifier_state: ModifierType) {
