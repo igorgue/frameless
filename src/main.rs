@@ -1,17 +1,18 @@
 use std::cell::RefCell;
-use std::time::SystemTime;
 use std::rc::Rc;
+use std::time::SystemTime;
 
 use adw::gdk::{Key, ModifierType};
 use adw::gio::Cancellable;
 use adw::gtk::EventControllerKey;
 use adw::prelude::*;
-use adw::{glib, glib::Propagation};
+use adw::{glib, glib::clone, glib::Propagation};
 use adw::{Application, ApplicationWindow};
 
 use webkit::prelude::*;
 use webkit::{javascriptcore, LoadEvent, WebView};
 
+const APP_ID: &str = "com.igorgue.Frameless";
 const LEADER_KEY_DEFAULT: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const DEFAULT_WINDOW_WIDTH: i32 = 300;
@@ -67,25 +68,21 @@ fn build_ui(app: &Application) {
         .content(&toolbar_view)
         .build();
 
-    let window_clone = window.clone();
-    let webviews_ref = Rc::new(RefCell::new(webviews));
     let window_key_pressed_controller = EventControllerKey::new();
-    let leader_key_ref = Rc::new(RefCell::new(leader_key));
+    let leader_key_ref = Rc::new(RefCell::new(leader_key.clone()));
+    let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
     window_key_pressed_controller.connect_key_pressed(
-        move |event, key, keycode, modifier_state| {
-            _ = (event, keycode);
-
+        clone!(@strong window, @strong tab_bar, @strong webviews_ref, @strong leader_key_ref => move |_event, key, _keycode, modifier_state| {
             handle_window_key_press(
-                &window_clone,
+                &window,
                 &tab_bar,
-                &webviews_ref,
-                &leader_key_ref,
+                &mut webviews_ref.borrow_mut(),
+                &mut leader_key_ref.borrow_mut(),
                 key,
                 modifier_state,
             )
-        },
+        }),
     );
-
     window.add_controller(window_key_pressed_controller);
 
     window.show();
@@ -178,8 +175,8 @@ fn get_current_time() -> u64 {
 fn handle_window_key_press(
     window: &ApplicationWindow,
     tab_bar: &adw::TabBar,
-    webviews: &Rc<RefCell<Vec<WebView>>>,
-    leader_key: &Rc<RefCell<LeaderKey>>,
+    webviews: &mut Vec<WebView>,
+    leader_key: &mut LeaderKey,
     key: Key,
     modifier_state: ModifierType,
 ) -> Propagation {
@@ -189,12 +186,13 @@ fn handle_window_key_press(
 
     show_key_press(key, modifier_state);
 
-    if key == leader_key.borrow().key {
-        leader_key.borrow_mut().update();
+    if key == leader_key.key {
+        println!("[frameless] Leader key pressed!");
+        leader_key.update();
         return Propagation::Stop;
     }
 
-    if leader_key.borrow().is_composing() {
+    if leader_key.is_composing() {
         if key == Key::q {
             println!("[frameless] Quitting!");
 
@@ -211,15 +209,15 @@ fn handle_window_key_press(
             init_settings(&webview);
 
             webview.load_uri(url);
-            webviews.borrow_mut().push(webview);
+            webviews.push(webview);
 
             let tab_view = tab_bar.view().unwrap();
 
-            let index = webviews.borrow().len() - 1;
+            let index = webviews.len() - 1;
 
-            tab_view.append(&webviews.borrow()[index]);
+            tab_view.append(&webviews[index]);
 
-            let tab_page = tab_view.page(&webviews.borrow()[index]);
+            let tab_page = tab_view.page(&webviews[index]);
             tab_view.set_selected_page(&tab_page);
 
             // let webview_clone = webviews.borrow()[index].clone();
@@ -253,7 +251,7 @@ fn handle_window_key_press(
 
             let tab_page_clone = tab_page.clone();
             let window_clone2 = window.clone();
-            let webview_clone = webviews.borrow()[index].clone();
+            let webview_clone = webviews[index].clone();
             webview_clone.connect_load_changed(move |webview, event| {
                 tab_page_clone.set_title("New tab");
 
@@ -344,11 +342,11 @@ fn handle_window_key_press(
 
             let webview_key_pressed_controller = EventControllerKey::new();
 
-            println!("[frameless] initial last: {}", leader_key.borrow().last);
+            println!("[frameless] initial last: {}", leader_key.last);
 
-            let leader_key2 = leader_key.borrow().clone();
+            let leader_key2 = leader_key.clone();
             let window_clone2 = window.clone();
-            let webview_clone2 = webviews.borrow()[index].clone();
+            let webview_clone2 = webviews[index].clone();
             webview_key_pressed_controller.connect_key_pressed(move |event, key, keycode, modifier_state| {
                 _ = (event, keycode);
 
@@ -479,8 +477,8 @@ fn handle_window_key_press(
                 Propagation::Proceed
             });
 
-            webviews.borrow()[index].add_controller(webview_key_pressed_controller);
-            webviews.borrow()[index].grab_focus();
+            webviews[index].add_controller(webview_key_pressed_controller);
+            webviews[index].grab_focus();
 
             return Propagation::Stop;
         }
@@ -492,9 +490,7 @@ fn handle_window_key_press(
 }
 
 fn main() -> glib::ExitCode {
-    let application = Application::builder()
-        .application_id("com.igorgue.Frameless")
-        .build();
+    let application = Application::builder().application_id(APP_ID).build();
 
     application.connect_activate(build_ui);
     application.run()
