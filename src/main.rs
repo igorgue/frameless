@@ -72,7 +72,7 @@ fn build_ui(app: &Application) {
     let leader_key_ref = Rc::new(RefCell::new(leader_key.clone()));
     let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
     window_key_pressed_controller.connect_key_pressed(
-        clone!(@strong window, @strong tab_bar, @strong webviews_ref, @strong leader_key_ref => move |_event, key, _keycode, modifier_state| {
+        clone!(@strong window => move |_event, key, _keycode, modifier_state| {
             handle_window_key_press(
                 &window,
                 &tab_bar,
@@ -220,262 +220,237 @@ fn handle_window_key_press(
             let tab_page = tab_view.page(&webviews[index]);
             tab_view.set_selected_page(&tab_page);
 
-            // let webview_clone = webviews.borrow()[index].clone();
-            // webview_clone.connect_create(move |webview, navigation_action| {
-            //     let new_webview = WebView::new();
-            //     init_settings(&new_webview);
-            //
-            //     let new_webview_clone = new_webview.clone();
-            //     let navigation_action_clone = navigation_action.clone();
-            //     webview.connect_decide_policy(move |_, decision, _type| {
-            //         if _type == PolicyDecisionType::NewWindowAction {
-            //             decision.use_();
-            //         }
-            //
-            //         let mut navigation_action_clone = navigation_action_clone.clone();
-            //         if let Some(request) = navigation_action_clone.request() {
-            //             if let Some(uri) = request.uri() {
-            //                 new_webview_clone.load_uri(&uri);
-            //             }
-            //         }
-            //
-            //         true
-            //     });
-            //
-            //
-            //     let widget = new_webview.upcast::<adw::gtk::Widget>();
-            //     tab_view.append(&widget);
-            //
-            //     widget
-            // });
+            let webview = webviews[index].clone();
+            webview.connect_load_changed(
+                clone!(@strong window, @strong tab_page => move |webview, event| {
+                    tab_page.set_title("New tab");
 
-            let tab_page_clone = tab_page.clone();
-            let window_clone2 = window.clone();
-            let webview_clone = webviews[index].clone();
-            webview_clone.connect_load_changed(move |webview, event| {
-                tab_page_clone.set_title("New tab");
+                    if event == LoadEvent::Finished {
+                        let c: Option<&Cancellable> = None;
 
-                if event == LoadEvent::Finished {
-                    let c: Option<&Cancellable> = None;
+                        webview.evaluate_javascript("document.title", None, None, c,
+                            clone!(@strong window, @strong tab_page => move |res| {
+                                if let Ok(value) = res {
+                                    let title = value.to_string();
+                                    tab_page.set_title(title.as_str());
+                                    window.set_title(Some(title.as_str()));
 
-                    let window_clone3 = window_clone2.clone();
-                    let tab_page_clone2 = tab_page_clone.clone();
-
-                    webview.evaluate_javascript("document.title", None, None, c, move |res| {
-                        if let Ok(value) = res {
-                            let title = value.to_string();
-                            tab_page_clone2.set_title(title.as_str());
-                            window_clone3.set_title(Some(title.as_str()));
-                        }
-                    });
-
-                    let c: Option<&Cancellable> = None;
-
-                    webview.evaluate_javascript(
-                        "if (!window.fml) window.fml = { loaded: false }",
-                        None,
-                        None,
-                        c,
-                        |_| {},
-                    );
-
-                    let webview_clone = webview.clone();
-                    webview.evaluate_javascript(
-                        "fml.loaded === false",
-                        None,
-                        None,
-                        c,
-                        move |res| {
-                            if let Ok(value) = res {
-                                if value.to_boolean() {
-                                    println!("[frameless] loading vimium...");
-
-                                    webview_clone.evaluate_javascript(
-                                        include_str!("vimium/lib/handler_stack.js"),
-                                        None,
-                                        None,
-                                        c,
-                                        |_| {},
-                                    );
-                                    webview_clone.evaluate_javascript(
-                                        include_str!("vimium/lib/dom_utils.js"),
-                                        None,
-                                        None,
-                                        c,
-                                        |_| {},
-                                    );
-                                    webview_clone.evaluate_javascript(
-                                        include_str!("vimium/lib/utils.js"),
-                                        None,
-                                        None,
-                                        c,
-                                        |_| {},
-                                    );
-                                    webview_clone.evaluate_javascript(
-                                        include_str!("vimium/content_scripts/scroller.js"),
-                                        None,
-                                        None,
-                                        c,
-                                        |_| {},
-                                    );
-                                    webview_clone.evaluate_javascript(
-                                        "Scroller.init()",
-                                        None,
-                                        None,
-                                        c,
-                                        |_| {},
-                                    );
-
-                                    webview_clone.evaluate_javascript(
-                                        "fml.loaded = true",
-                                        None,
-                                        None,
-                                        c,
-                                        |_| {},
-                                    );
+                                    println!("Title: {}", title);
                                 }
-                            }
-                        },
-                    );
-                }
-            });
+                            })
+                        );
+
+                        let c: Option<&Cancellable> = None;
+
+                        webview.evaluate_javascript(
+                            "if (!window.fml) window.fml = { loaded: false }",
+                            None,
+                            None,
+                            c,
+                            |_| {},
+                        );
+
+                        webview.evaluate_javascript(
+                            "fml.loaded === false",
+                            None,
+                            None,
+                            c,
+                            clone!(@strong webview => move |res| {
+                                if let Ok(value) = res {
+                                    if value.to_boolean() {
+                                        println!("[frameless] loading vimium...");
+
+                                        webview.evaluate_javascript(
+                                            include_str!("vimium/lib/handler_stack.js"),
+                                            None,
+                                            None,
+                                            c,
+                                            |_| {},
+                                        );
+                                        webview.evaluate_javascript(
+                                            include_str!("vimium/lib/dom_utils.js"),
+                                            None,
+                                            None,
+                                            c,
+                                            |_| {},
+                                        );
+                                        webview.evaluate_javascript(
+                                            include_str!("vimium/lib/utils.js"),
+                                            None,
+                                            None,
+                                            c,
+                                            |_| {},
+                                        );
+                                        webview.evaluate_javascript(
+                                            include_str!("vimium/content_scripts/scroller.js"),
+                                            None,
+                                            None,
+                                            c,
+                                            |_| {},
+                                        );
+                                        webview.evaluate_javascript(
+                                            "Scroller.init()",
+                                            None,
+                                            None,
+                                            c,
+                                            |_| {},
+                                        );
+
+                                        webview.evaluate_javascript(
+                                            "fml.loaded = true",
+                                            None,
+                                            None,
+                                            c,
+                                            |_| {},
+                                        );
+                                    }
+                                }
+                            }),
+                        );
+                    }
+                }),
+            );
 
             let webview_key_pressed_controller = EventControllerKey::new();
 
-            println!("[frameless] initial last: {}", leader_key.last);
+            // let leader_key2 = leader_key.clone();
+            // let window_clone2 = window.clone();
+            // let webview_clone2 = webviews[index].clone();
+            // let leader_key2 = leader_key.clone();
+            // let leader_key_ref = Rc::new(RefCell::new(leader_key.clone()));
+            webview_key_pressed_controller.connect_key_pressed(
+                clone!(@strong window, @strong webview, @strong leader_key => move |event, key, keycode, modifier_state| {
+                    _ = (event, keycode);
 
-            let leader_key2 = leader_key.clone();
-            let window_clone2 = window.clone();
-            let webview_clone2 = webviews[index].clone();
-            webview_key_pressed_controller.connect_key_pressed(move |event, key, keycode, modifier_state| {
-                _ = (event, keycode);
+                    print!("[kbd event] ");
+                    show_key_press(key, modifier_state);
 
-                print!("[kbd event] ");
-                show_key_press(key, modifier_state);
+                    // Check if the active element is an input or textarea
+                    // similar to vim insert mode / normal mode distinction
+                    // insert mode should allow all typing keys to work
+                    // normal mode should allow all vim keys to work
+                    let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+                    let leader_key_ref = Rc::new(RefCell::new(leader_key.clone()));
+                    let c: Option<&Cancellable> = None;
+                    webview.evaluate_javascript(js, None, None, c,
+                        clone!(@strong leader_key, @strong window, @strong webview => move |res| {
+                            let mut leader_key = leader_key_ref.borrow_mut();
 
-                // Check if the active element is an input or textarea
-                // similar to vim insert mode / normal mode distinction
-                // insert mode should allow all typing keys to work
-                // normal mode should allow all vim keys to work
-                let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-                let webview_clone3 = webview_clone2.clone();
-                let window_clone3 = window_clone2.clone();
-                let mut leader_key2_ref = leader_key2.clone();
-                let c: Option<&Cancellable> = None;
-                webview_clone2.evaluate_javascript(js, None, None, c, move |res| {
-                    if let Ok(value) = res {
-                        // insert mode
-                        if value.to_boolean() {
-                            // ctrl + leader key
-                            if key == leader_key2_ref.key && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                leader_key2_ref.update();
-                            }
+                            if let Ok(value) = res {
+                                // insert mode
+                                if value.to_boolean() {
+                                    // ctrl + leader key
+                                    if key == leader_key.key && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        leader_key.update();
+                                    }
 
-                            if leader_key2_ref.is_composing() {
-                                if key == Key::q {
-                                    println!("[frameless] Quitting!");
+                                    if leader_key.is_composing() {
+                                        if key == Key::q {
+                                            println!("[frameless] Quitting!");
 
-                                    window_clone3.application().unwrap().quit();
+                                            window.application().unwrap().quit();
+                                        }
+
+                                        if key == Key::n {
+                                            println!("[frameless] New tab!");
+                                        }
+                                    }
+
+                                    // Scrool keys with ctrl + h, j, k, l
+                                    if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        scroll_left(&webview, 1);
+                                    }
+                                    if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        scroll_down(&webview, 1);
+                                    }
+                                    if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        scroll_up(&webview, 1);
+                                    }
+                                    if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        scroll_right(&webview, 1);
+                                    }
+
+                                    // Back / Forward with ctrl + h, l
+                                    if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        webview.go_back();
+                                    }
+                                    if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        webview.go_forward();
+                                    }
+                                // normal mode
+                                } else {
+                                    // leader key
+                                    // if key == leader_key.key {
+                                    //     leader_key.update();
+                                    // }
+
+                                    // Scrool keys with h, j, k, l
+                                    if key == Key::h {
+                                        scroll_left(&webview, 1);
+                                    }
+                                    if key == Key::j {
+                                        scroll_down(&webview, 1);
+                                    }
+                                    if key == Key::k {
+                                        scroll_up(&webview, 1);
+                                    }
+                                    if key == Key::l {
+                                        scroll_right(&webview, 1);
+                                    }
+
+                                    // Back / Forward with H, L
+                                    if key == Key::H {
+                                        webview.go_back();
+                                    }
+                                    if key == Key::L {
+                                        webview.go_forward();
+                                    }
+                                    if key == Key::r {
+                                        webview.reload();
+                                    }
                                 }
 
-                                if key == Key::n {
-                                    println!("[frameless] New tab!");
+                                // these keys work for both modes
+
+                                // Reload with ctrl + r / reload harder with ctrl + R
+                                if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                    webview.reload();
+                                }
+                                if key == Key::R && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                    webview.reload_bypass_cache();
+                                }
+
+                                // Toggle inspector with ctrl + I
+                                if developer_extras && key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                    let inspector = webview.inspector().unwrap();
+
+                                    if inspector.is_attached() {
+                                        inspector.close();
+                                    } else {
+                                        inspector.show();
+                                    }
+                                }
+
+                                // Close inspector with escape
+                                if developer_extras && key == Key::Escape {
+                                    let inspector = webview.inspector().unwrap();
+
+                                    if inspector.is_attached() {
+                                        inspector.close();
+                                    }
                                 }
                             }
+                        })
+                    );
 
-                            // Scrool keys with ctrl + h, j, k, l
-                            if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                scroll_left(&webview_clone3, 1);
-                            }
-                            if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                scroll_down(&webview_clone3, 1);
-                            }
-                            if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                scroll_up(&webview_clone3, 1);
-                            }
-                            if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                scroll_right(&webview_clone3, 1);
-                            }
-
-                            // Back / Forward with ctrl + h, l
-                            if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                webview_clone3.go_back();
-                            }
-                            if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                webview_clone3.go_forward();
-                            }
-                        // normal mode
-                        } else {
-                            // leader key
-                            if key == leader_key2_ref.key {
-                                leader_key2_ref.update();
-                            }
-
-                            // Scrool keys with h, j, k, l
-                            if key == Key::h {
-                                scroll_left(&webview_clone3, 1);
-                            }
-                            if key == Key::j {
-                                scroll_down(&webview_clone3, 1);
-                            }
-                            if key == Key::k {
-                                scroll_up(&webview_clone3, 1);
-                            }
-                            if key == Key::l {
-                                scroll_right(&webview_clone3, 1);
-                            }
-
-                            // Back / Forward with H, L
-                            if key == Key::H {
-                                webview_clone3.go_back();
-                            }
-                            if key == Key::L {
-                                webview_clone3.go_forward();
-                            }
-                            if key == Key::r {
-                                webview_clone3.reload();
-                            }
-                        }
-
-                        // these keys work for both modes
-
-                        // Reload with ctrl + r / reload harder with ctrl + R
-                        if key == Key::r && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                            webview_clone3.reload();
-                        }
-                        if key == Key::R && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                            webview_clone3.reload_bypass_cache();
-                        }
-
-                        // Toggle inspector with ctrl + I
-                        if developer_extras && key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                            let inspector = webview_clone3.inspector().unwrap();
-
-                            if inspector.is_attached() {
-                                inspector.close();
-                            } else {
-                                inspector.show();
-                            }
-                        }
-
-                        // Close inspector with escape
-                        if developer_extras && key == Key::Escape {
-                            let inspector = webview_clone3.inspector().unwrap();
-
-                            if inspector.is_attached() {
-                                inspector.close();
-                            }
-                        }
+                    // Remove features from GTK, smiles menu
+                    if (key == Key::semicolon || key == Key::period) && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        return Propagation::Stop;
                     }
-                });
 
-                // Remove features from GTK, smiles menu
-                if (key == Key::semicolon || key == Key::period) && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                    return Propagation::Stop;
-                }
-
-                Propagation::Proceed
-            });
+                    Propagation::Proceed
+                })
+            );
 
             webviews[index].add_controller(webview_key_pressed_controller);
             webviews[index].grab_focus();
