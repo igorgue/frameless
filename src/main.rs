@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::time::SystemTime;
+use std::rc::Rc;
 
 use adw::gdk::{Key, ModifierType};
 use adw::gio::Cancellable;
@@ -67,9 +68,9 @@ fn build_ui(app: &Application) {
         .build();
 
     let window_clone = window.clone();
-    let webviews_ref = RefCell::new(webviews.clone());
+    let webviews_ref = Rc::new(RefCell::new(webviews));
     let window_key_pressed_controller = EventControllerKey::new();
-    let leader_key_ref = RefCell::new(leader_key.clone());
+    let leader_key_ref = Rc::new(RefCell::new(leader_key));
     window_key_pressed_controller.connect_key_pressed(
         move |event, key, keycode, modifier_state| {
             _ = (event, keycode);
@@ -177,8 +178,8 @@ fn get_current_time() -> u64 {
 fn handle_window_key_press(
     window: &ApplicationWindow,
     tab_bar: &adw::TabBar,
-    webviews: &RefCell<Vec<WebView>>,
-    leader_key: &RefCell<LeaderKey>,
+    webviews: &Rc<RefCell<Vec<WebView>>>,
+    leader_key: &Rc<RefCell<LeaderKey>>,
     key: Key,
     modifier_state: ModifierType,
 ) -> Propagation {
@@ -345,7 +346,7 @@ fn handle_window_key_press(
 
             println!("[frameless] initial last: {}", leader_key.borrow().last);
 
-            let leader_key2 = LeaderKey::new(LEADER_KEY_DEFAULT, leader_key.borrow().last);
+            let leader_key2 = leader_key.borrow().clone();
             let window_clone2 = window.clone();
             let webview_clone2 = webviews.borrow()[index].clone();
             webview_key_pressed_controller.connect_key_pressed(move |event, key, keycode, modifier_state| {
@@ -361,18 +362,18 @@ fn handle_window_key_press(
                 let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
                 let webview_clone3 = webview_clone2.clone();
                 let window_clone3 = window_clone2.clone();
-                let leader_key2_ref = RefCell::new(leader_key2.clone());
+                let mut leader_key2_ref = leader_key2.clone();
                 let c: Option<&Cancellable> = None;
                 webview_clone2.evaluate_javascript(js, None, None, c, move |res| {
                     if let Ok(value) = res {
                         // insert mode
                         if value.to_boolean() {
                             // ctrl + leader key
-                            if key == leader_key2_ref.borrow().key && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                leader_key2_ref.borrow_mut().update();
+                            if key == leader_key2_ref.key && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                leader_key2_ref.update();
                             }
 
-                            if leader_key2_ref.borrow().is_composing() {
+                            if leader_key2_ref.is_composing() {
                                 if key == Key::q {
                                     println!("[frameless] Quitting!");
 
@@ -408,8 +409,8 @@ fn handle_window_key_press(
                         // normal mode
                         } else {
                             // leader key
-                            if key == leader_key2_ref.borrow().key {
-                                leader_key2_ref.borrow_mut().update();
+                            if key == leader_key2_ref.key {
+                                leader_key2_ref.update();
                             }
 
                             // Scrool keys with h, j, k, l
