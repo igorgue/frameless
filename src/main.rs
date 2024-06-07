@@ -42,53 +42,6 @@ fn leader_is_composing() -> bool {
     current_time - last_pressed < LEADER_KEY_COMPOSE_TIME
 }
 
-fn build_ui(app: &Application) {
-    let webviews: Vec<WebView> = vec![];
-
-    let tab_bar = adw::TabBar::builder().build();
-    let tab_view = adw::TabView::builder().build();
-
-    tab_bar.set_view(Some(&tab_view));
-
-    let toolbar_view = adw::ToolbarView::new();
-
-    toolbar_view.add_top_bar(&tab_bar);
-    toolbar_view.set_content(Some(&tab_view));
-
-    let window = ApplicationWindow::builder()
-        .application(app)
-        .title("Frameless")
-        .default_width(DEFAULT_WINDOW_WIDTH)
-        .content(&toolbar_view)
-        .build();
-
-    let window_key_pressed_controller = EventControllerKey::new();
-    let webviews_ref = Rc::new(RefCell::new(webviews));
-    window_key_pressed_controller.connect_key_pressed(
-        clone!(@strong window => move |_event, key, _keycode, modifier_state| {
-            handle_window_key_press(
-                &window,
-                &tab_bar,
-                &mut webviews_ref.borrow_mut(),
-                key,
-                modifier_state,
-            )
-        }),
-    );
-    window.add_controller(window_key_pressed_controller);
-
-    window.show();
-
-    // TODO: add homepage...
-    // let content = "<html><body><h1>Frameless</h1><p>Press <code>;</code> to start typing commands</p></body></html>";
-    // let webview = WebView::new();
-    //
-    // init_settings(&webview);
-    // webview.load_html(content, None);
-
-    // tab_view.append(&webview);
-}
-
 fn show_key_press(key: Key, modifier_state: ModifierType) {
     let mut res = String::new();
 
@@ -405,7 +358,17 @@ fn handle_webkit_key_press(
                     }
 
                     if leader_is_composing() {
-                        if key == Key::
+                        if key == Key::q {
+                            println!("[frameless] Quitting!");
+
+                            window.application().unwrap().quit();
+                        }
+
+                        if key == Key::n {
+                            println!("[frameless] New tab!");
+
+                            todo!("do the new tab");
+                        }
                     } else {
 
                         // Scrool keys with h, j, k, l
@@ -476,6 +439,53 @@ fn handle_webkit_key_press(
     }
 
     Propagation::Proceed
+}
+
+fn build_ui(app: &Application) {
+    let webviews: Vec<WebView> = vec![];
+
+    let tab_bar = adw::TabBar::builder().build();
+    let tab_view = adw::TabView::builder().build();
+
+    tab_bar.set_view(Some(&tab_view));
+
+    let toolbar_view = adw::ToolbarView::new();
+
+    toolbar_view.add_top_bar(&tab_bar);
+    toolbar_view.set_content(Some(&tab_view));
+
+    let window = ApplicationWindow::builder()
+        .application(app)
+        .title("Frameless")
+        .default_width(DEFAULT_WINDOW_WIDTH)
+        .content(&toolbar_view)
+        .build();
+
+    let window_key_pressed_controller = EventControllerKey::new();
+    let webviews_ref = Rc::new(RefCell::new(webviews));
+    window_key_pressed_controller.connect_key_pressed(
+        clone!(@strong window => move |_event, key, _keycode, modifier_state| {
+            handle_window_key_press(
+                &window,
+                &tab_bar,
+                &mut webviews_ref.borrow_mut(),
+                key,
+                modifier_state,
+            )
+        }),
+    );
+    window.add_controller(window_key_pressed_controller);
+
+    window.show();
+
+    // TODO: add homepage...
+    // let content = "<html><body><h1>Frameless</h1><p>Press <code>;</code> to start typing commands</p></body></html>";
+    // let webview = WebView::new();
+    //
+    // init_settings(&webview);
+    // webview.load_html(content, None);
+
+    // tab_view.append(&webview);
 }
 
 fn main() -> glib::ExitCode {
