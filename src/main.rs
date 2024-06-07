@@ -19,24 +19,24 @@ const DEFAULT_WINDOW_WIDTH: i32 = 300;
 const SCROLL_AMOUNT: i32 = 22;
 const HOME_DEFAULT: &str = "https://crates.io";
 
-static mut leader_key_last_pressed: u64 = 0;
+static mut LEADER_LAST_PRESSED: u64 = 0;
 
-fn get_leader_key_last_pressed() -> u64 {
-    unsafe { leader_key_last_pressed }
+fn leader_last_pressed() -> u64 {
+    unsafe { LEADER_LAST_PRESSED }
 }
 
-fn set_leader_key_last_pressed(time: u64) {
+fn set_leader_last_pressed(time: u64) {
     unsafe {
-        leader_key_last_pressed = time;
+        LEADER_LAST_PRESSED = time;
     }
 }
 
-fn update_leader_key_last_pressed() {
-    set_leader_key_last_pressed(get_current_time());
+fn update_leader_last_pressed() {
+    set_leader_last_pressed(get_current_time());
 }
 
-fn get_leader_key_is_composing() -> bool {
-    let last_pressed = get_leader_key_last_pressed();
+fn leader_is_composing() -> bool {
+    let last_pressed = leader_last_pressed();
     let current_time = get_current_time();
 
     current_time - last_pressed < LEADER_KEY_COMPOSE_TIME
@@ -186,11 +186,11 @@ fn handle_window_key_press(
 
     if key == LEADER_KEY_DEFAULT {
         println!("[frameless] Leader key pressed!");
-        update_leader_key_last_pressed();
+        update_leader_last_pressed();
         return Propagation::Stop;
     }
 
-    if get_leader_key_is_composing() {
+    if leader_is_composing() {
         if key == Key::q {
             println!("[frameless] Quitting!");
 
@@ -330,10 +330,10 @@ fn handle_window_key_press(
                                 if value.to_boolean() {
                                     // ctrl + leader key
                                     if key == LEADER_KEY_DEFAULT && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                        update_leader_key_last_pressed();
+                                        update_leader_last_pressed();
                                     }
 
-                                    if get_leader_key_is_composing() {
+                                    if leader_is_composing() {
                                         if key == Key::q {
                                             println!("[frameless] Quitting!");
 
