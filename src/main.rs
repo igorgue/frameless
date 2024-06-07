@@ -164,13 +164,6 @@ fn get_current_time() -> u64 {
         .as_millis() as u64
 }
 
-// fn handle_webkit_key_press(
-//     webview: &WebView,
-//     key: Key,
-//     modifier_state: ModifierType,
-// ) -> Propagation {
-// }
-
 fn handle_window_key_press(
     window: &ApplicationWindow,
     tab_bar: &adw::TabBar,
@@ -221,27 +214,106 @@ fn handle_window_key_press(
             let webview = webviews[index].clone();
             webview.connect_load_changed(
                 clone!(@strong window, @strong tab_page => move |webview, event| {
-                    tab_page.set_title("New tab");
+                    handle_webkit_load_changed(webview, event, &window, &tab_page);
+                }),
+            );
 
-                    if event == LoadEvent::Finished {
-                        let c: Option<&Cancellable> = None;
+            let webview_key_pressed_controller = EventControllerKey::new();
+            webview_key_pressed_controller.connect_key_pressed(
+                clone!(@strong window, @strong webview => move |_event, key, _keycode, modifier_state| {
+                    handle_webkit_key_press(&window, &webview, key, modifier_state, developer_extras)
+                })
+            );
 
-                        webview.evaluate_javascript("document.title", None, None, c,
-                            clone!(@strong window, @strong tab_page => move |res| {
-                                if let Ok(value) = res {
-                                    let title = value.to_string();
-                                    tab_page.set_title(title.as_str());
-                                    window.set_title(Some(title.as_str()));
+            webviews[index].add_controller(webview_key_pressed_controller);
+            webviews[index].grab_focus();
 
-                                    println!("Title: {}", title);
-                                }
-                            })
-                        );
+            return Propagation::Stop;
+        }
 
-                        let c: Option<&Cancellable> = None;
+        return Propagation::Stop;
+    }
+
+    Propagation::Proceed
+}
+
+fn handle_webkit_load_changed(
+    webview: &WebView,
+    event: LoadEvent,
+    window: &ApplicationWindow,
+    tab_page: &adw::TabPage,
+) {
+    tab_page.set_title("[webkit] New tab!");
+
+    if event == LoadEvent::Finished {
+        let c: Option<&Cancellable> = None;
+
+        webview.evaluate_javascript(
+            "document.title",
+            None,
+            None,
+            c,
+            clone!(@strong window, @strong tab_page => move |res| {
+                if let Ok(value) = res {
+                    let title = value.to_string();
+                    tab_page.set_title(title.as_str());
+                    window.set_title(Some(title.as_str()));
+
+                    println!("Title: {}", title);
+                }
+            }),
+        );
+
+        let c: Option<&Cancellable> = None;
+
+        webview.evaluate_javascript(
+            "if (!window.fml) window.fml = { loaded: false }",
+            None,
+            None,
+            c,
+            |_| {},
+        );
+
+        webview.evaluate_javascript(
+            "fml.loaded === false",
+            None,
+            None,
+            c,
+            clone!(@strong webview => move |res| {
+                if let Ok(value) = res {
+                    if value.to_boolean() {
+                        println!("[frameless] loading vimium...");
 
                         webview.evaluate_javascript(
-                            "if (!window.fml) window.fml = { loaded: false }",
+                            include_str!("vimium/lib/handler_stack.js"),
+                            None,
+                            None,
+                            c,
+                            |_| {},
+                        );
+                        webview.evaluate_javascript(
+                            include_str!("vimium/lib/dom_utils.js"),
+                            None,
+                            None,
+                            c,
+                            |_| {},
+                        );
+                        webview.evaluate_javascript(
+                            include_str!("vimium/lib/utils.js"),
+                            None,
+                            None,
+                            c,
+                            |_| {},
+                        );
+                        webview.evaluate_javascript(
+                            include_str!("vimium/content_scripts/scroller.js"),
+                            None,
+                            None,
+                            c,
+                            |_| {},
+                        );
+                        webview.evaluate_javascript(
+                            "Scroller.init()",
                             None,
                             None,
                             c,
@@ -249,81 +321,36 @@ fn handle_window_key_press(
                         );
 
                         webview.evaluate_javascript(
-                            "fml.loaded === false",
+                            "fml.loaded = true",
                             None,
                             None,
                             c,
-                            clone!(@strong webview => move |res| {
-                                if let Ok(value) = res {
-                                    if value.to_boolean() {
-                                        println!("[frameless] loading vimium...");
-
-                                        webview.evaluate_javascript(
-                                            include_str!("vimium/lib/handler_stack.js"),
-                                            None,
-                                            None,
-                                            c,
-                                            |_| {},
-                                        );
-                                        webview.evaluate_javascript(
-                                            include_str!("vimium/lib/dom_utils.js"),
-                                            None,
-                                            None,
-                                            c,
-                                            |_| {},
-                                        );
-                                        webview.evaluate_javascript(
-                                            include_str!("vimium/lib/utils.js"),
-                                            None,
-                                            None,
-                                            c,
-                                            |_| {},
-                                        );
-                                        webview.evaluate_javascript(
-                                            include_str!("vimium/content_scripts/scroller.js"),
-                                            None,
-                                            None,
-                                            c,
-                                            |_| {},
-                                        );
-                                        webview.evaluate_javascript(
-                                            "Scroller.init()",
-                                            None,
-                                            None,
-                                            c,
-                                            |_| {},
-                                        );
-
-                                        webview.evaluate_javascript(
-                                            "fml.loaded = true",
-                                            None,
-                                            None,
-                                            c,
-                                            |_| {},
-                                        );
-                                    }
-                                }
-                            }),
+                            |_| {},
                         );
                     }
-                }),
-            );
+                }
+            }),
+        );
+    }
+}
 
-            let webview_key_pressed_controller = EventControllerKey::new();
-            webview_key_pressed_controller.connect_key_pressed(
-                clone!(@strong window, @strong webview => move |event, key, keycode, modifier_state| {
-                    _ = (event, keycode);
+fn handle_webkit_key_press(
+    window: &ApplicationWindow,
+    webview: &WebView,
+    key: Key,
+    modifier_state: ModifierType,
+    developer_extras: bool,
+) -> Propagation {
+    print!("[kbd event] ");
+    show_key_press(key, modifier_state);
 
-                    print!("[kbd event] ");
-                    show_key_press(key, modifier_state);
-
-                    // Check if the active element is an input or textarea
-                    // similar to vim insert mode / normal mode distinction
-                    // insert mode should allow all typing keys to work
-                    // normal mode should allow all vim keys to work
-                    let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-                    let c: Option<&Cancellable> = None;
-                    webview.evaluate_javascript(js, None, None, c,
+    // Check if the active element is an input or textarea
+    // similar to vim insert mode / normal mode distinction
+    // insert mode should allow all typing keys to work
+    // normal mode should allow all vim keys to work
+    let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
+    let c: Option<&Cancellable> = None;
+    webview.evaluate_javascript(js, None, None, c,
                         clone!(@strong window, @strong webview => move |res| {
                             if let Ok(value) = res {
                                 // insert mode
@@ -369,9 +396,9 @@ fn handle_window_key_press(
                                 // normal mode
                                 } else {
                                     // leader key
-                                    // if key == leader_key.key {
-                                    //     leader_key.update();
-                                    // }
+                                    if key == LEADER_KEY_DEFAULT {
+                                        update_leader_last_pressed();
+                                    }
 
                                     // Scrool keys with h, j, k, l
                                     if key == Key::h {
@@ -432,21 +459,10 @@ fn handle_window_key_press(
                         })
                     );
 
-                    // Remove features from GTK, smiles menu
-                    if (key == Key::semicolon || key == Key::period) && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        return Propagation::Stop;
-                    }
-
-                    Propagation::Proceed
-                })
-            );
-
-            webviews[index].add_controller(webview_key_pressed_controller);
-            webviews[index].grab_focus();
-
-            return Propagation::Stop;
-        }
-
+    // Remove features from GTK, smiles menu
+    if (key == Key::semicolon || key == Key::period)
+        && modifier_state.contains(ModifierType::CONTROL_MASK)
+    {
         return Propagation::Stop;
     }
 
