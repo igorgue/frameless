@@ -404,29 +404,34 @@ fn handle_webkit_key_press(
                         update_leader_last_pressed();
                     }
 
-                    // Scrool keys with h, j, k, l
-                    if key == Key::h {
-                        scroll_left(&webview, 1);
-                    }
-                    if key == Key::j {
-                        scroll_down(&webview, 1);
-                    }
-                    if key == Key::k {
-                        scroll_up(&webview, 1);
-                    }
-                    if key == Key::l {
-                        scroll_right(&webview, 1);
-                    }
+                    if leader_is_composing() {
+                        if key == Key::
+                    } else {
 
-                    // Back / Forward with H, L
-                    if key == Key::H {
-                        webview.go_back();
-                    }
-                    if key == Key::L {
-                        webview.go_forward();
-                    }
-                    if key == Key::r {
-                        webview.reload();
+                        // Scrool keys with h, j, k, l
+                        if key == Key::h {
+                            scroll_left(&webview, 1);
+                        }
+                        if key == Key::j {
+                            scroll_down(&webview, 1);
+                        }
+                        if key == Key::k {
+                            scroll_up(&webview, 1);
+                        }
+                        if key == Key::l {
+                            scroll_right(&webview, 1);
+                        }
+
+                        // Back / Forward with H, L
+                        if key == Key::H {
+                            webview.go_back();
+                        }
+                        if key == Key::L {
+                            webview.go_forward();
+                        }
+                        if key == Key::r {
+                            webview.reload();
+                        }
                     }
                 }
 
