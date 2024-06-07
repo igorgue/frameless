@@ -19,31 +19,27 @@ const DEFAULT_WINDOW_WIDTH: i32 = 300;
 const SCROLL_AMOUNT: i32 = 22;
 const HOME_DEFAULT: &str = "https://crates.io";
 
-#[derive(Debug, Clone)]
-struct LeaderKey {
-    key: Key,
-    last: u64,
+static mut leader_key_last_pressed: u64 = 0;
+
+fn get_leader_key_last_pressed() -> u64 {
+    unsafe { leader_key_last_pressed }
 }
 
-impl LeaderKey {
-    fn new(key: Key, last: u64) -> Self {
-        Self { key, last }
+fn set_leader_key_last_pressed(time: u64) {
+    unsafe {
+        leader_key_last_pressed = time;
     }
+}
 
-    fn is_composing(&self) -> bool {
-        println!(
-            "[frameless] Leader key is_composing? last: {}, now: {}, diff: {}",
-            self.last,
-            get_current_time(),
-            get_current_time() - self.last
-        );
+fn update_leader_key_last_pressed() {
+    set_leader_key_last_pressed(get_current_time());
+}
 
-        self.last + LEADER_KEY_COMPOSE_TIME > get_current_time()
-    }
+fn get_leader_key_is_composing() -> bool {
+    let last_pressed = get_leader_key_last_pressed();
+    let current_time = get_current_time();
 
-    fn update(&mut self) {
-        self.last = get_current_time();
-    }
+    current_time - last_pressed < LEADER_KEY_COMPOSE_TIME
 }
 
 fn build_ui(app: &Application) {
@@ -51,8 +47,6 @@ fn build_ui(app: &Application) {
 
     let tab_bar = adw::TabBar::builder().build();
     let tab_view = adw::TabView::builder().build();
-
-    let leader_key = LeaderKey::new(LEADER_KEY_DEFAULT, 0);
 
     tab_bar.set_view(Some(&tab_view));
 
@@ -69,15 +63,13 @@ fn build_ui(app: &Application) {
         .build();
 
     let window_key_pressed_controller = EventControllerKey::new();
-    let leader_key_ref = Rc::new(RefCell::new(leader_key.clone()));
-    let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
+    let webviews_ref = Rc::new(RefCell::new(webviews));
     window_key_pressed_controller.connect_key_pressed(
         clone!(@strong window => move |_event, key, _keycode, modifier_state| {
             handle_window_key_press(
                 &window,
                 &tab_bar,
                 &mut webviews_ref.borrow_mut(),
-                &mut leader_key_ref.borrow_mut(),
                 key,
                 modifier_state,
             )
@@ -172,11 +164,17 @@ fn get_current_time() -> u64 {
         .as_millis() as u64
 }
 
+// fn handle_webkit_key_press(
+//     webview: &WebView,
+//     key: Key,
+//     modifier_state: ModifierType,
+// ) -> Propagation {
+// }
+
 fn handle_window_key_press(
     window: &ApplicationWindow,
     tab_bar: &adw::TabBar,
     webviews: &mut Vec<WebView>,
-    leader_key: &mut LeaderKey,
     key: Key,
     modifier_state: ModifierType,
 ) -> Propagation {
@@ -186,13 +184,13 @@ fn handle_window_key_press(
 
     show_key_press(key, modifier_state);
 
-    if key == leader_key.key {
+    if key == LEADER_KEY_DEFAULT {
         println!("[frameless] Leader key pressed!");
-        leader_key.update();
+        update_leader_key_last_pressed();
         return Propagation::Stop;
     }
 
-    if leader_key.is_composing() {
+    if get_leader_key_is_composing() {
         if key == Key::q {
             println!("[frameless] Quitting!");
 
@@ -312,14 +310,8 @@ fn handle_window_key_press(
             );
 
             let webview_key_pressed_controller = EventControllerKey::new();
-
-            // let leader_key2 = leader_key.clone();
-            // let window_clone2 = window.clone();
-            // let webview_clone2 = webviews[index].clone();
-            // let leader_key2 = leader_key.clone();
-            // let leader_key_ref = Rc::new(RefCell::new(leader_key.clone()));
             webview_key_pressed_controller.connect_key_pressed(
-                clone!(@strong window, @strong webview, @strong leader_key => move |event, key, keycode, modifier_state| {
+                clone!(@strong window, @strong webview => move |event, key, keycode, modifier_state| {
                     _ = (event, keycode);
 
                     print!("[kbd event] ");
@@ -330,21 +322,18 @@ fn handle_window_key_press(
                     // insert mode should allow all typing keys to work
                     // normal mode should allow all vim keys to work
                     let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
-                    let leader_key_ref = Rc::new(RefCell::new(leader_key.clone()));
                     let c: Option<&Cancellable> = None;
                     webview.evaluate_javascript(js, None, None, c,
-                        clone!(@strong leader_key, @strong window, @strong webview => move |res| {
-                            let mut leader_key = leader_key_ref.borrow_mut();
-
+                        clone!(@strong window, @strong webview => move |res| {
                             if let Ok(value) = res {
                                 // insert mode
                                 if value.to_boolean() {
                                     // ctrl + leader key
-                                    if key == leader_key.key && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                                        leader_key.update();
+                                    if key == LEADER_KEY_DEFAULT && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                                        update_leader_key_last_pressed();
                                     }
 
-                                    if leader_key.is_composing() {
+                                    if get_leader_key_is_composing() {
                                         if key == Key::q {
                                             println!("[frameless] Quitting!");
 
