@@ -290,6 +290,7 @@ fn handle_webkit_load_changed(
     );
 }
 
+#[allow(clippy::ptr_arg)]
 fn handle_webkit_key_press(
     window: &ApplicationWindow,
     tab_bar: &adw::TabBar,
