@@ -116,6 +116,48 @@ fn get_current_time() -> u64 {
         .as_millis() as u64
 }
 
+fn new_tab(
+    window: &ApplicationWindow,
+    webviews: &mut Vec<WebView>,
+    tab_bar: &adw::TabBar,
+    developer_extras: bool,
+) {
+    let url = HOME_DEFAULT;
+    let webview = WebView::new();
+
+    init_settings(&webview);
+
+    webview.load_uri(url);
+    webviews.push(webview);
+
+    let tab_view = tab_bar.view().unwrap();
+
+    let index = webviews.len() - 1;
+
+    tab_view.append(&webviews[index]);
+
+    let tab_page = tab_view.page(&webviews[index]);
+    tab_view.set_selected_page(&tab_page);
+
+    let webview = webviews[index].clone();
+    webview.connect_load_changed(
+        clone!(@strong window, @strong tab_page => move |webview, event| {
+            handle_webkit_load_changed(webview, event, &window, &tab_page);
+        }),
+    );
+
+    let webview_key_pressed_controller = EventControllerKey::new();
+    let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
+    webview_key_pressed_controller.connect_key_pressed(
+        clone!(@strong window, @strong webview, @strong tab_bar, @strong webviews => move |_event, key, _keycode, modifier_state| {
+            handle_webkit_key_press(&window, &tab_bar, webviews_ref.borrow_mut().as_mut(), key, modifier_state, developer_extras)
+        })
+    );
+
+    webviews[index].add_controller(webview_key_pressed_controller);
+    webviews[index].grab_focus();
+}
+
 fn handle_window_key_press(
     window: &ApplicationWindow,
     tab_bar: &adw::TabBar,
@@ -146,41 +188,7 @@ fn handle_window_key_press(
         if key == Key::n {
             println!("[frameless] New tab!");
 
-            let url = HOME_DEFAULT;
-            let webview = WebView::new();
-
-            init_settings(&webview);
-
-            webview.load_uri(url);
-            webviews.push(webview);
-
-            let tab_view = tab_bar.view().unwrap();
-
-            let index = webviews.len() - 1;
-
-            tab_view.append(&webviews[index]);
-
-            let tab_page = tab_view.page(&webviews[index]);
-            tab_view.set_selected_page(&tab_page);
-
-            let webview = webviews[index].clone();
-            webview.connect_load_changed(
-                clone!(@strong window, @strong tab_page => move |webview, event| {
-                    handle_webkit_load_changed(webview, event, &window, &tab_page);
-                }),
-            );
-
-            let webview_key_pressed_controller = EventControllerKey::new();
-            let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
-            webview_key_pressed_controller.connect_key_pressed(
-                clone!(@strong window, @strong webview, @strong tab_bar, @strong webviews => move |_event, key, _keycode, modifier_state| {
-
-                    handle_webkit_key_press(&window, &tab_bar, webviews_ref.borrow_mut().as_mut(), key, modifier_state, developer_extras)
-                })
-            );
-
-            webviews[index].add_controller(webview_key_pressed_controller);
-            webviews[index].grab_focus();
+            new_tab(window, webviews, tab_bar, developer_extras);
 
             return Propagation::Stop;
         }
@@ -197,7 +205,7 @@ fn handle_webkit_load_changed(
     window: &ApplicationWindow,
     tab_page: &adw::TabPage,
 ) {
-    tab_page.set_title("[webkit] New tab!");
+    tab_page.set_title("New Tab");
 
     if event != LoadEvent::Finished {
         return;
@@ -331,40 +339,7 @@ fn handle_webkit_key_press(
                         if key == Key::n {
                             println!("[frameless] New tab!");
 
-                            let url = HOME_DEFAULT;
-                            let webview = WebView::new();
-
-                            init_settings(&webview);
-
-                            webview.load_uri(url);
-                            webviews_ref.borrow_mut().push(webview);
-
-                            let tab_view = tab_bar.view().unwrap();
-
-                            let index = webviews.len() - 1;
-
-                            tab_view.append(&webviews[index]);
-
-                            let tab_page = tab_view.page(&webviews[index]);
-                            tab_view.set_selected_page(&tab_page);
-
-                            let webview = webviews[index].clone();
-                            webview.connect_load_changed(
-                                clone!(@strong window, @strong tab_page => move |webview, event| {
-                                    handle_webkit_load_changed(webview, event, &window, &tab_page);
-                                }),
-                            );
-
-                            let webview_key_pressed_controller = EventControllerKey::new();
-                            let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
-                            webview_key_pressed_controller.connect_key_pressed(
-                                clone!(@strong window, @strong tab_bar, @strong webviews => move |_event, key, _keycode, modifier_state| {
-                                    handle_webkit_key_press(&window, &tab_bar, webviews_ref.borrow_mut().as_mut(), key, modifier_state, developer_extras)
-                                })
-                            );
-
-                            webviews[index].add_controller(webview_key_pressed_controller);
-                            webviews[index].grab_focus();
+                            new_tab(&window, webviews_ref.borrow_mut().as_mut(), &tab_bar, developer_extras);
                         }
                     }
 
@@ -406,7 +381,7 @@ fn handle_webkit_key_press(
                         if key == Key::n {
                             println!("[frameless] New tab!");
 
-                            todo!("do the new tab");
+                            new_tab(&window, webviews_ref.borrow_mut().as_mut(), &tab_bar, developer_extras);
                         }
                     } else {
 
