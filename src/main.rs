@@ -17,7 +17,7 @@ const LEADER_KEY_DEFAULT: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const DEFAULT_WINDOW_WIDTH: i32 = 300;
 const SCROLL_AMOUNT: i32 = 22;
-const HOME_DEFAULT: &str = "https://crates.io";
+const HOME_DEFAULT: &str = "https://youtube.com";
 
 static mut LEADER_LAST_PRESSED: u64 = 0;
 
@@ -95,6 +95,13 @@ fn scroll_left(web_view: &WebView, times: u8) {
 fn scroll_right(web_view: &WebView, times: u8) {
     let js = format!("Scroller.scrollBy('x', {} * {})", SCROLL_AMOUNT, times);
     run_js(web_view, js.as_str(), |_| {});
+}
+
+fn init_env() {
+    // NOTE: enable when the wayland compositing stuff is resolved
+    if env::var("XDG_SESSION_TYPE").map(|v| v.to_lowercase()) == Ok("hyprland".to_string()) {
+        env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+    }
 }
 
 fn init_settings(web_view: &WebView) {
@@ -513,10 +520,7 @@ fn build_ui(app: &Application) {
 }
 
 fn main() -> glib::ExitCode {
-    // NOTE: enable when the wayland compositing stuff is resolved
-    if env::var("WAYLAND_DISPLAY").is_ok() {
-        env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-    }
+    init_env();
 
     let application = Application::builder().application_id(APP_ID).build();
 
