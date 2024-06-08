@@ -1,5 +1,5 @@
-use std::cell::RefCell;
 use std::time::SystemTime;
+use std::{cell::RefCell, rc::Rc};
 
 use adw::gdk::{Key, ModifierType};
 use adw::gio::Cancellable;
@@ -171,7 +171,7 @@ fn handle_window_key_press(
             );
 
             let webview_key_pressed_controller = EventControllerKey::new();
-            let webviews_ref = RefCell::new(webviews.clone());
+            let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
             webview_key_pressed_controller.connect_key_pressed(
                 clone!(@strong window, @strong webview, @strong tab_bar, @strong webviews => move |_event, key, _keycode, modifier_state| {
 
@@ -310,7 +310,7 @@ fn handle_webkit_key_press(
     // normal mode should allow all vim keys to work
     let js = "document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'";
     let c: Option<&Cancellable> = None;
-    let webviews_ref = RefCell::new(webviews.clone());
+    let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
     webview.evaluate_javascript(js, None, None, c,
         clone!(@strong window, @strong webview, @strong webviews, @strong tab_bar => move |res| {
             if let Ok(value) = res {
@@ -356,7 +356,7 @@ fn handle_webkit_key_press(
                             );
 
                             let webview_key_pressed_controller = EventControllerKey::new();
-                            let webviews_ref = RefCell::new(webviews.clone());
+                            let webviews_ref = Rc::new(RefCell::new(webviews.clone()));
                             webview_key_pressed_controller.connect_key_pressed(
                                 clone!(@strong window, @strong tab_bar, @strong webviews => move |_event, key, _keycode, modifier_state| {
                                     handle_webkit_key_press(&window, &tab_bar, webviews_ref.borrow_mut().as_mut(), key, modifier_state, developer_extras)
@@ -501,7 +501,7 @@ fn build_ui(app: &Application) {
         .build();
 
     let window_key_pressed_controller = EventControllerKey::new();
-    let webviews_ref = RefCell::new(webviews);
+    let webviews_ref = Rc::new(RefCell::new(webviews));
     window_key_pressed_controller.connect_key_pressed(
         clone!(@strong window => move |_event, key, _keycode, modifier_state| {
             handle_window_key_press(
