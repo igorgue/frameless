@@ -1,3 +1,4 @@
+use std::env;
 use std::time::SystemTime;
 use std::{cell::RefCell, rc::Rc};
 
@@ -97,7 +98,7 @@ fn scroll_right(web_view: &WebView, times: u8) {
 }
 
 fn init_settings(web_view: &WebView) {
-    let settings = WebViewExt::settings(web_view).unwrap();
+    let settings = WebViewExt::settings(web_view).expect("No settings found");
 
     settings.set_enable_developer_extras(true);
     settings.set_enable_caret_browsing(false);
@@ -477,6 +478,8 @@ fn build_ui(app: &Application) {
 
     let window_key_pressed_controller = EventControllerKey::new();
     let webviews_ref = Rc::new(RefCell::new(webviews));
+    let webviews_ref2 = webviews_ref.clone();
+    let tab_bar_clone = tab_bar.clone();
     window_key_pressed_controller.connect_key_pressed(
         clone!(@strong window => move |_event, key, _keycode, modifier_state| {
             handle_window_key_press(
@@ -489,6 +492,13 @@ fn build_ui(app: &Application) {
         }),
     );
     window.add_controller(window_key_pressed_controller);
+
+    new_tab(
+        &window,
+        &mut webviews_ref2.borrow_mut(),
+        &tab_bar_clone,
+        true,
+    );
 
     window.show();
 
@@ -503,6 +513,11 @@ fn build_ui(app: &Application) {
 }
 
 fn main() -> glib::ExitCode {
+    // NOTE: enable when the wayland compositing stuff is resolved
+    if env::var("WAYLAND_DISPLAY").is_ok() {
+        env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+    }
+
     let application = Application::builder().application_id(APP_ID).build();
 
     application.connect_activate(build_ui);
