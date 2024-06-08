@@ -17,7 +17,7 @@ const LEADER_KEY_DEFAULT: Key = Key::semicolon;
 const LEADER_KEY_COMPOSE_TIME: u64 = 500; // ms
 const DEFAULT_WINDOW_WIDTH: i32 = 300;
 const SCROLL_AMOUNT: i32 = 22;
-const HOME_DEFAULT: &str = "https://youtube.com";
+const HOME_DEFAULT: &str = "https://crates.io";
 
 static mut LEADER_LAST_PRESSED: u64 = 0;
 
@@ -99,9 +99,10 @@ fn scroll_right(web_view: &WebView, times: u8) {
 
 fn init_env() {
     // NOTE: enable when the wayland compositing stuff is resolved
-    if env::var("XDG_SESSION_TYPE").map(|v| v.to_lowercase()) == Ok("hyprland".to_string()) {
+    // heh this doesn't work
+    // if env::var("XDG_SESSION_TYPE").map(|v| v.to_lowercase()) == Ok("hyprland".to_string()) {
         env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-    }
+    // }
 }
 
 fn init_settings(web_view: &WebView) {
@@ -109,7 +110,7 @@ fn init_settings(web_view: &WebView) {
 
     settings.set_enable_developer_extras(true);
     settings.set_enable_caret_browsing(false);
-    settings.set_enable_smooth_scrolling(true);
+    settings.set_enable_smooth_scrolling(false);
     settings.set_enable_back_forward_navigation_gestures(true);
     settings.set_enable_webgl(true);
     settings.set_enable_webaudio(true);
