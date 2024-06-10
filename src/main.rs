@@ -125,6 +125,18 @@ fn get_current_time() -> u64 {
         .as_millis() as u64
 }
 
+fn close_tab(tab_bar: &adw::TabBar, webviews: &mut Vec<WebView>) {
+    let tab_view = tab_bar.view().expect("Tab view not found");
+    let selected_page = tab_view.selected_page().expect("No selected page found");
+
+    let index = tab_view.page_position(&selected_page);
+    let webview = webviews.remove(index as usize);
+
+    let tab_page = tab_view.page(&webview);
+
+    tab_view.close_page(&tab_page);
+}
+
 fn new_tab(
     window: &ApplicationWindow,
     webviews: &mut Vec<WebView>,
@@ -201,6 +213,29 @@ fn handle_window_key_press(
 
             return Propagation::Stop;
         }
+
+        return Propagation::Stop;
+    }
+
+    if key == Key::q && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        println!("[frameless] Quitting!");
+
+        quit(window);
+        return Propagation::Stop;
+    }
+
+    if key == Key::t && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        println!("[frameless] New tab!");
+
+        new_tab(window, webviews, tab_bar, developer_extras);
+
+        return Propagation::Stop;
+    }
+
+    if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
+        println!("[frameless] Close tab!");
+
+        close_tab(tab_bar, webviews);
 
         return Propagation::Stop;
     }
@@ -350,28 +385,37 @@ fn handle_webkit_key_press(
 
                             new_tab(&window, webviews_ref.borrow_mut().as_mut(), &tab_bar, developer_extras);
                         }
-                    }
+                    } else {
+                        // Scrool keys with ctrl + h, j, k, l
+                        if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            scroll_left(&webview, 1);
+                        }
+                        if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            scroll_down(&webview, 1);
+                        }
+                        if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            scroll_up(&webview, 1);
+                        }
+                        if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            scroll_right(&webview, 1);
+                        }
 
-                    // Scrool keys with ctrl + h, j, k, l
-                    if key == Key::h && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        scroll_left(&webview, 1);
-                    }
-                    if key == Key::j && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        scroll_down(&webview, 1);
-                    }
-                    if key == Key::k && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        scroll_up(&webview, 1);
-                    }
-                    if key == Key::l && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        scroll_right(&webview, 1);
-                    }
+                        // Back / Forward with ctrl + h, l
+                        if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            webview.go_back();
+                        }
+                        if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            webview.go_forward();
+                        }
 
-                    // Back / Forward with ctrl + h, l
-                    if key == Key::H && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        webview.go_back();
-                    }
-                    if key == Key::L && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                        webview.go_forward();
+                        // ctrl + t for new tab
+                        if key == Key::t && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            new_tab(&window, webviews_ref.borrow_mut().as_mut(), &tab_bar, developer_extras);
+                        }
+
+                        if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                            close_tab(&tab_bar, webviews_ref.borrow_mut().as_mut());
+                        }
                     }
                 // normal mode
                 } else {
@@ -393,7 +437,6 @@ fn handle_webkit_key_press(
                             new_tab(&window, webviews_ref.borrow_mut().as_mut(), &tab_bar, developer_extras);
                         }
                     } else {
-
                         // Scrool keys with h, j, k, l
                         if key == Key::h {
                             scroll_left(&webview, 1);
@@ -418,6 +461,15 @@ fn handle_webkit_key_press(
                         if key == Key::r {
                             webview.reload();
                         }
+                    }
+
+                    // ctrl + t for new tab
+                    if key == Key::t && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        new_tab(&window, webviews_ref.borrow_mut().as_mut(), &tab_bar, developer_extras);
+                    }
+
+                    if key == Key::w && modifier_state.contains(ModifierType::CONTROL_MASK) {
+                        close_tab(&tab_bar, webviews_ref.borrow_mut().as_mut());
                     }
                 }
 
