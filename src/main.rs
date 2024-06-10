@@ -60,10 +60,10 @@ fn show_key_press(key: Key, modifier_state: ModifierType) {
 
     match key.to_unicode() {
         Some(chr) => res.push(chr),
-        None => res.push_str(&format!("{:?}", key)),
+        None => res.push_str(&format!("{key:?}")),
     };
 
-    println!("{}", res);
+    println!("{res}")
 }
 
 fn run_js<F: Fn(Result<javascriptcore::Value, glib::Error>) + 'static>(
@@ -101,7 +101,7 @@ fn init_env() {
     // NOTE: enable when the wayland compositing stuff is resolved
     // heh this doesn't work
     // if env::var("XDG_SESSION_TYPE").map(|v| v.to_lowercase()) == Ok("hyprland".to_string()) {
-        env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+    env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
     // }
 }
 
@@ -121,7 +121,7 @@ fn init_settings(web_view: &WebView) {
 fn get_current_time() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
+        .expect("Time went backwards")
         .as_millis() as u64
 }
 
@@ -139,7 +139,7 @@ fn new_tab(
     webview.load_uri(url);
     webviews.push(webview);
 
-    let tab_view = tab_bar.view().unwrap();
+    let tab_view = tab_bar.view().expect("Tab view not found");
 
     let index = webviews.len() - 1;
 
@@ -190,7 +190,7 @@ fn handle_window_key_press(
         if key == Key::q {
             println!("[frameless] Quitting!");
 
-            window.application().unwrap().quit();
+            quit(window);
             return Propagation::Stop;
         }
 
@@ -233,7 +233,7 @@ fn handle_webkit_load_changed(
                 tab_page.set_title(title.as_str());
                 window.set_title(Some(title.as_str()));
 
-                println!("Title: {}", title);
+                println!("Title: {title}");
             }
         }),
     );
@@ -319,7 +319,7 @@ fn handle_webkit_key_press(
     print!("[kbd event] ");
     show_key_press(key, modifier_state);
 
-    let webview = webviews.last().unwrap();
+    let webview = webviews.last().expect("No webviews found");
 
     // Check if the active element is an input or textarea
     // similar to vim insert mode / normal mode distinction
@@ -342,7 +342,7 @@ fn handle_webkit_key_press(
                         if key == Key::q {
                             println!("[frameless] Quitting!");
 
-                            window.application().unwrap().quit();
+                            quit(&window);
                         }
 
                         if key == Key::n {
@@ -384,7 +384,7 @@ fn handle_webkit_key_press(
                         if key == Key::q {
                             println!("[frameless] Quitting!");
 
-                            window.application().unwrap().quit();
+                            quit(&window);
                         }
 
                         if key == Key::n {
@@ -433,7 +433,7 @@ fn handle_webkit_key_press(
 
                 // Toggle inspector with ctrl + I
                 if developer_extras && key == Key::I && modifier_state.contains(ModifierType::CONTROL_MASK) {
-                    let inspector = webview.inspector().unwrap();
+                    let inspector = webview.inspector().expect("No inspector found");
 
                     if inspector.is_attached() {
                         inspector.close();
@@ -444,7 +444,7 @@ fn handle_webkit_key_press(
 
                 // Close inspector with escape
                 if developer_extras && key == Key::Escape {
-                    let inspector = webview.inspector().unwrap();
+                    let inspector = webview.inspector().expect("No inspector found");
 
                     if inspector.is_attached() {
                         inspector.close();
@@ -462,6 +462,13 @@ fn handle_webkit_key_press(
     }
 
     Propagation::Proceed
+}
+
+fn quit(window: &ApplicationWindow) {
+    window
+        .application()
+        .expect("application should exists")
+        .quit();
 }
 
 fn build_ui(app: &Application) {
